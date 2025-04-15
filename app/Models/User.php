@@ -46,4 +46,72 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+    public function lecturer()
+    {
+        return $this->hasOne(Lecturer::class);
+    }
+
+    /**
+     * Get the student record associated with the user.
+     */
+    public function student()
+    {
+        return $this->hasOne(Student::class);
+    }
+
+    /**
+     * Get the notifications for the user.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
+
+    /**
+     * Get the calendar integrations for the user.
+     */
+    public function calendarIntegrations()
+    {
+        return $this->hasMany(CalendarIntegration::class);
+    }
+
+    /**
+     * Get the feedback submitted by the user.
+     */
+    public function feedback()
+    {
+        return $this->hasMany(Feedback::class);
+    }
+
+    /**
+     * Get the audit logs for the user.
+     */
+    public function auditLogs()
+    {
+        return $this->hasMany(AuditLog::class);
+    }
+
+    /**
+     * Check if the user is an admin.
+     */
+    public function isAdmin()
+    {
+        return $this->role === 'admin';
+    }
+
+    /**
+     * Check if the user is a lecturer.
+     */
+    public function isLecturer()
+    {
+        return $this->role === 'lecturer';
+    }
+
+    /**
+     * Check if the user is a student.
+     */
+    public function isStudent()
+    {
+        return $this->role === 'student';
+    }
 }

@@ -1,5 +1,9 @@
 <?php
 
+use App\Http\Controllers\API\CourseController;
+use App\Http\Controllers\API\LecturerController;
+use App\Http\Controllers\API\RoomController;
+use App\Http\Controllers\API\TimetableController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -42,5 +46,44 @@ Route::middleware(['auth', 'role:student'])->group(function () {
     })->name('student.dashboard');
 });
 
+Route::middleware('auth:sanctum')->group(function () {
+    // Course Routes
+    Route::get('/courses', [CourseController::class, 'index']);
+    Route::post('/courses', [CourseController::class, 'store']);
+    Route::get('/courses/{id}', [CourseController::class, 'show']);
+    Route::put('/courses/{id}', [CourseController::class, 'update']);
+    Route::delete('/courses/{id}', [CourseController::class, 'destroy']);
+    Route::get('/courses/{id}/lecturers', [CourseController::class, 'lecturers']);
+    Route::get('/courses/{id}/timetable', [CourseController::class, 'timetableEntries']);
+    Route::get('/courses/{id}/students', [CourseController::class, 'students']);
+
+    // Lecturer Routes
+    Route::get('/lecturers', [LecturerController::class, 'index']);
+    Route::post('/lecturers', [LecturerController::class, 'store']);
+    Route::get('/lecturers/{id}', [LecturerController::class, 'show']);
+    Route::put('/lecturers/{id}', [LecturerController::class, 'update']);
+    Route::delete('/lecturers/{id}', [LecturerController::class, 'destroy']);
+    Route::get('/lecturers/{id}/courses', [LecturerController::class, 'courses']);
+    Route::get('/lecturers/{id}/timetable', [LecturerController::class, 'timetableEntries']);
+    Route::get('/lecturers/{id}/availability', [LecturerController::class, 'availability']);
+
+    // Room Routes
+    Route::get('/rooms', [RoomController::class, 'index']);
+    Route::post('/rooms', [RoomController::class, 'store']);
+    Route::get('/rooms/{id}', [RoomController::class, 'show']);
+    Route::put('/rooms/{id}', [RoomController::class, 'update']);
+    Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
+    Route::get('/rooms/{id}/timetable', [RoomController::class, 'timetableEntries']);
+    Route::get('/rooms/{id}/availability', [RoomController::class, 'availability']);
+
+    // Timetable Routes
+    Route::get('/timetable', [TimetableController::class, 'index']);
+    Route::post('/timetable', [TimetableController::class, 'store']);
+    Route::get('/timetable/{id}', [TimetableController::class, 'show']);
+    Route::put('/timetable/{id}', [TimetableController::class, 'update']);
+    Route::delete('/timetable/{id}', [TimetableController::class, 'destroy']);
+    Route::get('/timetable/{id}/conflicts', [TimetableController::class, 'conflicts']);
+    Route::post('/timetable/generate', [TimetableController::class, 'generate']);
+});
 
 require __DIR__.'/auth.php';
