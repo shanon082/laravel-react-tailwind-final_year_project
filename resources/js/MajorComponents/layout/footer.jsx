@@ -1,13 +1,20 @@
+import { Link } from "@inertiajs/react";
+
 const Footer = () => {
-  const currentYear = new Date().getFullYear();
-  
   return (
-    <footer className="bg-white border-t border-gray-200">
-      <div className="max-w-7xl mx-auto py-6 px-4 overflow-hidden sm:px-6 lg:px-8">
-        <div className="mt-4 flex justify-center space-x-6">
-          <p className="text-center text-base text-gray-500">
-            &copy; {currentYear} Soroti University. All rights reserved.
-          </p>
+    <footer className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 py-4 px-4 sm:px-6 lg:px-8 z-30">
+      <div className="max-w-7xl mx-auto flex flex-col sm:flex-row justify-around items-center text-sm text-gray-500">
+        <p>© {new Date().getFullYear()} Soroti University. All rights reserved.</p>
+        <div className="mt-2 sm:mt-0 space-x-4">
+          <Link href="/privacy" className="hover:text-primary">
+            Privacy Policy
+          </Link>
+          <Link href="/terms" className="hover:text-primary">
+            Terms of Service
+          </Link>
+          <Link href="/contact" className="hover:text-primary">
+            Contact
+          </Link>
         </div>
       </div>
     </footer>

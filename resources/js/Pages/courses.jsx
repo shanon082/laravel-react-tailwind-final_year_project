@@ -1,13 +1,15 @@
 import { useState } from "react";
-import Layout from "../components/layout/layout";
-import CourseList from "../components/courses/course-list";
-import CourseForm from "../components/courses/course-form";
-import { Button } from "../components/ui/button";
+import Layout from "../MajorComponents/layout/layout";
+import CourseList from "../MajorComponents/courses/course-list";
+import CourseForm from "../MajorComponents/courses/course-form";
+import { Button } from "../components/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types";
+import { Head } from "@inertiajs/react";
+import AppLayout from "@/Layouts/AppLayout";
 
-const Courses = () => {
+const Courses = ({ auth}) => {
   const { user } = useAuth();
   const [isAddingCourse, setIsAddingCourse] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState(null);
@@ -30,7 +32,8 @@ const Courses = () => {
   };
 
   return (
-    <Layout>
+    <Layout auth={auth} header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Courses</h2>}>
+      <Head title="Courses" />
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Courses</h1>

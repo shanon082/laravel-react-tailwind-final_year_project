@@ -1,15 +1,16 @@
 import { useState } from "react";
-import Layout from "../components/layout/layout";
-import FilterControls from "../components/timetable/filter-controls";
-import TimetableGrid from "../components/timetable/timetable-grid";
-import ConflictList from "../components/conflicts/conflict-list";
-import TimetableGenerator from "../components/timetable/timetable-generator";
+import Layout from "../MajorComponents/layout/layout";
+import FilterControls from "../MajorComponents/timetable/filter-controls";
+import TimetableGrid from "../MajorComponents/timetable/timetable-grid";
+import ConflictList from "../MajorComponents/conflicts/conflict-list";
+import TimetableGenerator from "../MajorComponents/timetable/timetable-generator";
 import { Filter, Day } from "../types/index";
 import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types";
 import { useLocation } from "wouter";
+import { Head } from "@inertiajs/react";
 
-const Timetable = () => {
+const Timetable = ({auth}) => {
   const { user } = useAuth();
   const [location] = useLocation();
   const [filters, setFilters] = useState<Filter>({
@@ -29,7 +30,8 @@ const Timetable = () => {
   const semester = "First";
 
   return (
-    <Layout>
+    <Layout user={auth.user}>
+      <Head title="Timetable" />
       <div className="mb-6">
         <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
           Timetable

@@ -4,7 +4,7 @@ import {
   CardContent, 
   CardHeader, 
   CardTitle 
-} from "../ui/card";
+} from "../../Components/card";
 import {
   Table,
   TableBody,
@@ -12,15 +12,15 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../ui/table";
-import { Button } from "../ui/button";
+} from "../../Components/table";
+import { Button } from "../../Components/button";
 import { 
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import { Badge } from "../ui/badge";
+} from "../../Components/dropdown-menu";
+import { Badge } from "../../Components/badge";
 import { Edit, MoreHorizontal, Loader2 } from "lucide-react";
 // The Course type import has been removed because JavaScript does not support TypeScript types
 // import { Course } from "../..//types";

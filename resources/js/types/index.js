@@ -3,9 +3,9 @@
 
 // Define UserRole enum
 export const UserRole = {
-  ADMIN: "ADMIN", 
-  LECTURER: "LECTURER", 
-  STUDENT: "STUDENT"
+  ADMIN: "admin", 
+  LECTURER: "lecturer", 
+  STUDENT: "student"
 };
 
 // Define Day enum

@@ -39,6 +39,7 @@
         "date-fns": "^4.1.0",
         "drizzle-orm": "^0.41.0",
         "drizzle-zod": "^0.7.1",
+        "framer-motion": "^12.7.3",
         "react-hook-form": "^7.55.0",
         "react-router-dom": "^7.5.0",
         "tailwind-merge": "^3.2.0",

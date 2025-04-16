@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button } from "../components/ui/button";
+import { Button } from "../components/button";
 import { 
   Dialog, 
   DialogTrigger, 
@@ -8,15 +8,16 @@ import {
   DialogTitle, 
   DialogDescription,
   DialogFooter
-} from "../components/ui/dialog";
-import { Label } from "../components/ui/label";
-import { Input } from "../components/ui/input";
+} from "../components/dialog";
+import { Label } from "../components/label";
+import { Input } from "../components/input";
 import { Plus, UserPlus } from "lucide-react";
-import Layout from "../components/layout/layout";
+import Layout from "../MajorComponents/layout/layout";
 import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types/index";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest, queryClient } from "../lib/queryClient";
+import AppLayout from "@/Layouts/AppLayout";
 
 // Will need these components created next
 // import LecturerList from "@/components/lecturers/lecturer-list";
@@ -232,7 +233,7 @@ const AddLecturerDialog = ({ open, onOpenChange, onAddLecturer }) => {
   );
 };
 
-const Lecturers = () => {
+const Lecturers = ({auth}) => {
   const { user } = useAuth();
   const [selectedLecturerId, setSelectedLecturerId] = useState(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -250,7 +251,10 @@ const Lecturers = () => {
   };
 
   return (
-    <Layout>
+    <AppLayout
+    auth={auth}
+    header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Lecturers</h2>}>
+      <Head title="Lecturers" />
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Lecturers</h1>
@@ -325,7 +329,7 @@ const Lecturers = () => {
           )}
         </div>
       </div>
-    </Layout>
+    </AppLayout>
   );
 };
 

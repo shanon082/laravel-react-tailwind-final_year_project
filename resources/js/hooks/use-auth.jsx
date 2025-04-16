@@ -1,6 +1,8 @@
-import { usePage } from '@inertiajs/react';
+import { usePage } from "@inertiajs/react";
 
 export const useAuth = () => {
-  const { props } = usePage();
-  return { user: props.auth.user };
+    const { auth } = usePage().props;
+    return {
+        user: auth?.user || null,
+    };
 };

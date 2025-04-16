@@ -1,13 +1,14 @@
 import { useState } from "react";
-import Layout from "../components/layout/layout";
-import RoomList from "../components/rooms/room-list";
-import RoomForm from "../components/rooms/room-form";
-import { Button } from "../components/ui/button";
+import Layout from "../MajorComponents/layout/layout";
+import RoomList from "../MajorComponents/rooms/room-list";
+import RoomForm from "../MajorComponents/rooms/room-form";
+import { Button } from "../Components/Button";
 import { Plus } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types";
+import { Head } from "@inertiajs/react";
 
-const Rooms = () => {
+const Rooms = ({auth}) => {
   const { user } = useAuth();
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [editingRoomId, setEditingRoomId] = useState(null);
@@ -30,7 +31,8 @@ const Rooms = () => {
   };
 
   return (
-    <Layout>
+    <Layout user={auth.user}>
+      <Head title="Rooms" />
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Rooms</h1>

@@ -3,10 +3,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import { Checkbox } from "../ui/checkbox";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../Components/card";
+import { Button } from "../../Components/button";
+import { Input } from "../../Components/input";
+import { Checkbox } from "../../Components/Checkbox";
 import { 
   Form, 
   FormControl, 
@@ -15,7 +15,7 @@ import {
   FormItem, 
   FormLabel, 
   FormMessage 
-} from "../ui/form";
+} from "../../Components/form";
 import { Loader2 } from "lucide-react";
 import { apiRequest } from "../../lib/queryClient";
 import { queryClient } from "../../lib/queryClient";

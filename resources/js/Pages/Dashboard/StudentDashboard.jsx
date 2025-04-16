@@ -9,6 +9,7 @@ import { Badge } from "../../Components/Badge";
 import TimetableGrid from "../../MajorComponents/timetable/timetable-grid";
 import { useToast } from "../../hooks/use-toast";
 import { useState } from 'react';
+import Layout from '@/MajorComponents/layout/layout';
 
 export default function StudentDashboard({ auth }) {
 
@@ -95,7 +96,7 @@ export default function StudentDashboard({ auth }) {
   };
 
   return (
-    <AuthenticatedLayout user={auth.user}>
+    <Layout user={auth.user}>
       <Head title="Student Dashboard" />
       <div>
         <div className="md:flex md:items-center md:justify-between mb-6">
@@ -215,6 +216,6 @@ export default function StudentDashboard({ auth }) {
           </TabsContent>
         </Tabs>
       </div>
-    </AuthenticatedLayout>
+     </Layout>
   );
 }

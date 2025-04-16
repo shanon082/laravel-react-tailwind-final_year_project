@@ -9,18 +9,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\DB;
+use Inertia\Inertia;
 
 class LecturerController extends Controller
 {
     /**
      * Display a listing of all lecturers.
      *
-     * @return \Illuminate\Http\Response
+     * @return \Inertia\Response|\Illuminate\Http\JsonResponse
      */
-    public function index()
+    public function index(Request $request)
     {
         $lecturers = Lecturer::with('user')->get();
-        return response()->json($lecturers);
+        if ($request->wantsJson() || $request->is('api/*')) {
+            return response()->json($lecturers);
+        }
+        
+        return Inertia::render('Lecturers', [
+            'lecturers' => $lecturers
+        ]);
     }
 
     /**
@@ -54,7 +61,7 @@ class LecturerController extends Controller
                 'full_name' => $request->full_name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
-                'role' => 'LECTURER',
+                'role' => 'lecturer',
                 'department' => $request->department,
             ]);
 

@@ -9,9 +9,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle
-} from "../ui/card"
-import { Button } from "../ui/button"
-import { Input } from "../ui/input"
+} from "../../Components/Card"
+import { Button } from "../../Components/Button"
+import { Input } from "../../Components/input"
 import {
   Form,
   FormControl,
@@ -19,14 +19,14 @@ import {
   FormItem,
   FormLabel,
   FormMessage
-} from "../ui/form"
+} from "../../Components/form"
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue
-} from "../ui/select"
+} from "../../Components/Select"
 import { Loader2 } from "lucide-react"
 import { apiRequest } from "../../lib/queryClient"
 import { queryClient } from "../../lib/queryClient"

@@ -1,15 +1,27 @@
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
-import Layout from "../Layouts/layout";
+import { Head, usePage } from '@inertiajs/react';
+import Layout from "../MajorComponents/layout/layout";
 import { UserRole } from "../types/index";
 import AdminDashboard from "../Pages/Dashboard/AdminDashboard";
 import LecturerDashboard from "../Pages/Dashboard/LecturerDashboard";
 import StudentDashboard from "../Pages/Dashboard/StudentDashboard";
 
-
 export default function Dashboard() {
+    const { auth } = usePage().props;
+    const user = auth?.user;
+
+    console.log("Dashboard: user", user);
+
     const renderDashboard = () => {
-        switch (user?.role) {
+        if (!user) {
+            console.warn("Dashboard: No user found, rendering error");
+            return (
+                <div className="p-6 text-red-600">
+                    Error: Please log in to view your dashboard.
+                </div>
+            );
+        }
+
+        switch (user.role) {
             case UserRole.ADMIN:
                 return <AdminDashboard />;
             case UserRole.LECTURER:
@@ -17,33 +29,17 @@ export default function Dashboard() {
             case UserRole.STUDENT:
                 return <StudentDashboard />;
             default:
+                console.warn("Dashboard: Invalid role, defaulting to StudentDashboard");
                 return <StudentDashboard />;
         }
     };
 
     return (
-        <AuthenticatedLayout user={auth.user}
-        // header={
-        //     <h2 className="text-xl font-semibold leading-tight text-gray-800">
-        //         Dashboard
-        //     </h2>
-        // }
-        >
+        <Layout>
             <Head title="Dashboard" />
-
-            {/* <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            You're logged in!
-                        </div>
-                    </div>
-                </div>
-            </div> */}
-            <Layout>
+            <div className="max-w-7xl mx-auto">
                 {renderDashboard()}
-            </Layout>
-
-        </AuthenticatedLayout>
+            </div>
+        </Layout>
     );
 }

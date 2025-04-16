@@ -1,4 +1,4 @@
-import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon } from 'lucide-react';
+import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon, BookOpenTextIcon } from 'lucide-react';
 import StatsCard from './stats-card';
 import { useQuery } from '@tanstack/react-query';
 import axios from "axios";

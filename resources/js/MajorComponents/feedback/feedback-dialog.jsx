@@ -18,15 +18,16 @@ import {
   SelectItem
 } from "../../Components/Select";
 import { Label } from "../../Components/Label";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Loader2 } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
+import DangerButton from "@/Components/DangerButton";
 
 const feedbackTypes = [
-  { id: "bug", label: "Bug Report" },
-  { id: "feature", label: "Feature Request" },
-  { id: "improvement", label: "Improvement Suggestion" },
-  { id: "other", label: "Other" }
+  { id: "bug", label: "Bug Report", icon: "🐛" },
+  { id: "feature", label: "Feature Request", icon: "✨" },
+  { id: "improvement", label: "Improvement Suggestion", icon: "💡" },
+  { id: "other", label: "Other", icon: "📝" }
 ];
 
 const FeedbackDialog = () => {
@@ -59,6 +60,15 @@ const FeedbackDialog = () => {
       return;
     }
     
+    if (feedback.message.length < 10) {
+      toast({
+        title: "Message too short",
+        description: "Please provide more details (at least 10 characters).",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsSubmitting(true);
     
     try {
@@ -69,7 +79,7 @@ const FeedbackDialog = () => {
       setTimeout(() => {
         toast({
           title: "Feedback Sent",
-          description: "Thank you for your feedback! We appreciate your input.",
+          description: "Thank you for helping us improve! We'll review your feedback soon.",
           variant: "default",
         });
         
@@ -85,7 +95,7 @@ const FeedbackDialog = () => {
     } catch (error) {
       toast({
         title: "Error sending feedback",
-        description: error.message || "Could not send feedback. Please try again.",
+        description: error.message || "Could not send feedback. Please try again later.",
         variant: "destructive",
       });
       setIsSubmitting(false);
@@ -98,34 +108,50 @@ const FeedbackDialog = () => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="fixed bottom-4 right-4 shadow-md z-30 flex items-center"
+          className="fixed bottom-6 right-6 shadow-lg z-30 flex items-center gap-2 bg-white hover:bg-gray-50 transition-all"
+          aria-label="Provide feedback"
         >
-          <MessageSquare className="h-4 w-4 md:mr-2" />
+          <MessageSquare className="h-4 w-4" />
           <span className="hidden md:inline">Feedback</span>
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg rounded-lg">
         <DialogHeader>
-          <DialogTitle>Send Feedback</DialogTitle>
-          <DialogDescription>
-            Help us improve the timetable system by sharing your thoughts or reporting issues.
-          </DialogDescription>
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-primary/10 text-primary">
+              <MessageSquare className="h-5 w-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-lg font-semibold">Share Your Feedback</DialogTitle>
+              <DialogDescription className="text-sm text-gray-600">
+                Help us improve your experience
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit} className="space-y-4 py-4">
+        <form onSubmit={handleSubmit} className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label htmlFor="feedback-type">Feedback Type</Label>
+            <Label htmlFor="feedback-type" className="text-sm font-medium text-gray-200">
+              What type of feedback do you have?
+            </Label>
             <Select 
               value={feedback.type} 
               onValueChange={handleTypeChange}
+              disabled={isSubmitting}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select type of feedback" />
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select feedback type" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-md bg-white">
                 {feedbackTypes.map(type => (
-                  <SelectItem key={type.id} value={type.id}>
+                  <SelectItem 
+                    key={type.id} 
+                    value={type.id}
+                    className="flex items-center gap-2"
+                  >
+                    <span className="text-sm">{type.icon}</span>
                     {type.label}
                   </SelectItem>
                 ))}
@@ -134,31 +160,44 @@ const FeedbackDialog = () => {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="feedback-message">Your Message</Label>
+            <Label htmlFor="feedback-message" className="text-sm font-medium text-gray-200">
+              Your detailed feedback
+            </Label>
             <Textarea
               id="feedback-message"
               name="message"
               value={feedback.message}
               onChange={handleChange}
-              placeholder="Please describe your feedback in detail..."
-              className="min-h-[150px]"
+              placeholder="Please describe your feedback in detail. What happened? What did you expect? How can we improve?"
+              className="min-h-[150px] text-sm"
+              disabled={isSubmitting}
             />
+            <p className="text-xs text-gray-200">
+              {feedback.message.length}/500 characters
+            </p>
           </div>
           
-          <DialogFooter>
-            <Button 
+          <DialogFooter className="gap-2 sm:gap-0">
+            <DangerButton 
               type="button" 
               variant="outline" 
               onClick={() => setOpen(false)}
               disabled={isSubmitting}
+              className="w-full sm:w-auto"
             >
               Cancel
-            </Button>
+            </DangerButton>
             <Button 
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || !feedback.type || !feedback.message}
+              className="w-full sm:w-auto border border-white bg-primary text-white hover:bg-primary/90 transition-all"
             >
-              {isSubmitting ? "Sending..." : "Send Feedback"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : "Send Feedback"}
             </Button>
           </DialogFooter>
         </form>
