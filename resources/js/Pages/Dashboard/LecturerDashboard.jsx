@@ -89,7 +89,7 @@ export default function LecturerDashboard({ auth }) {
     // In a real implementation, this would trigger a PDF generation
   };
   return (
-    <Layout user={auth.user}>
+    <Layout>
       <Head title="Lecturer Dashboard" />
       <div>
         <div className="md:flex md:items-center md:justify-between mb-6">

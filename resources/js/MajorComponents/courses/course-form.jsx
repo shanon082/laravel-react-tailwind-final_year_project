@@ -6,7 +6,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../Components/card";
 import { Button } from "../../Components/button";
 import { Input } from "../../Components/input";
-import { Checkbox } from "../../Components/Checkbox";
+import  Checkbox  from "../../Components/Checkbox";
 import { 
   Form, 
   FormControl, 

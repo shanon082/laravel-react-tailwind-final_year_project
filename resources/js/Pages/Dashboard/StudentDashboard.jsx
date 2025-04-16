@@ -96,7 +96,7 @@ export default function StudentDashboard({ auth }) {
   };
 
   return (
-    <Layout user={auth.user}>
+    <Layout>
       <Head title="Student Dashboard" />
       <div>
         <div className="md:flex md:items-center md:justify-between mb-6">

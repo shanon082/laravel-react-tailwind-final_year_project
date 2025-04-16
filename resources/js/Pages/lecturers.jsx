@@ -18,6 +18,7 @@ import { UserRole } from "../types/index";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest, queryClient } from "../lib/queryClient";
 import AppLayout from "@/Layouts/AppLayout";
+import { Head } from "@inertiajs/react";
 
 // Will need these components created next
 // import LecturerList from "@/components/lecturers/lecturer-list";
@@ -251,8 +252,8 @@ const Lecturers = ({auth}) => {
   };
 
   return (
-    <AppLayout
-    auth={auth}
+    <Layout
+    
     header={<h2 className="text-xl font-semibold leading-tight text-gray-800">Lecturers</h2>}>
       <Head title="Lecturers" />
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
@@ -329,7 +330,7 @@ const Lecturers = ({auth}) => {
           )}
         </div>
       </div>
-    </AppLayout>
+    </Layout>
   );
 };
 

@@ -31,9 +31,9 @@ const Rooms = ({auth}) => {
   };
 
   return (
-    <Layout user={auth.user}>
+    <Layout>
       <Head title="Rooms" />
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
+      <div className="mt-8 mr-80 mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">Rooms</h1>
           <p className="mt-2 text-sm text-gray-600">
