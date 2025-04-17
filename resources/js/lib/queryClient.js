@@ -7,20 +7,34 @@ async function throwIfResNotOk(res) {
   }
 }
 
-export async function apiRequest(
-  method,
-  url,
-  data,
-) {
-  const res = await fetch(url, {
+export async function apiRequest(method, path, body = null) {
+  const url = `/api${path}`; // Ensure /api prefix
+  const options = {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      'X-XSRF-TOKEN': document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '', // Include CSRF token
+      'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
+      // Do NOT include X-Inertia header
+    },
+    credentials: 'include', // Include cookies for Sanctum session
+  };
 
-  await throwIfResNotOk(res);
-  return res;
+  if (body) {
+    options.body = JSON.stringify(body);
+  }
+
+  const response = await fetch(url, options);
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      throw new Error('Unauthorized');
+    }
+    throw new Error('Network response was not ok');
+  }
+
+  return response.json();
 }
 
 export const getQueryFn = ({ on401: unauthorizedBehavior }) => {

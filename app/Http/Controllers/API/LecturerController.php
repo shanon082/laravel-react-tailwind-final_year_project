@@ -18,16 +18,9 @@ class LecturerController extends Controller
      *
      * @return \Inertia\Response|\Illuminate\Http\JsonResponse
      */
-    public function index(Request $request)
+    public function index()
     {
-        $lecturers = Lecturer::with('user')->get();
-        if ($request->wantsJson() || $request->is('api/*')) {
-            return response()->json($lecturers);
-        }
-        
-        return Inertia::render('Lecturers', [
-            'lecturers' => $lecturers
-        ]);
+        return Inertia::render('Lecturers');
     }
 
     /**

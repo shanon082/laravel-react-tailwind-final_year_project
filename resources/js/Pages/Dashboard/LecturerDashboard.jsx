@@ -89,9 +89,9 @@ export default function LecturerDashboard({ auth }) {
     // In a real implementation, this would trigger a PDF generation
   };
   return (
-    <Layout>
+    <>
       <Head title="Lecturer Dashboard" />
-      <div>
+      <div className='sm:p-6 lg:p-8'>
         <div className="md:flex md:items-center md:justify-between mb-6">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl">Lecturer Dashboard</h1>
@@ -116,7 +116,7 @@ export default function LecturerDashboard({ auth }) {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full mb-6">
-          <TabsList className="w-full grid grid-cols-3">
+        <TabsList className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] mb-6 bg-gray-100 p-1 rounded-lg">
             <TabsTrigger value="timetable">My Schedule</TabsTrigger>
             <TabsTrigger value="courses">My Courses</TabsTrigger>
             <TabsTrigger value="upcoming">Upcoming Classes</TabsTrigger>
@@ -213,6 +213,6 @@ export default function LecturerDashboard({ auth }) {
           </TabsContent>
         </Tabs>
       </div>
-    </Layout>
+    </>
   );
 }

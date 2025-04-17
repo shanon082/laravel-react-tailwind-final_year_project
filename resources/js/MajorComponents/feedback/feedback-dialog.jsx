@@ -10,18 +10,11 @@ import {
 } from "../../Components/dialog";
 import { Button } from "../../Components/Button";
 import { Textarea } from "../../Components/textarea";
-import { 
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem
-} from "../../Components/Select";
 import { Label } from "../../Components/Label";
-import { MessageSquare, Loader2 } from "lucide-react";
+import { CheckCircle2, MessageSquare, Loader2, AlertTriangle } from "lucide-react";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
-import DangerButton from "@/Components/DangerButton";
+import { motion, AnimatePresence } from "framer-motion";
 
 const feedbackTypes = [
   { id: "bug", label: "Bug Report", icon: "🐛" },
@@ -37,70 +30,77 @@ const FeedbackDialog = () => {
     message: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [showSuccess, setShowSuccess] = useState(false);
   const { toast } = useToast();
+  const maxLength = 500;
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFeedback(prev => ({ ...prev, [name]: value }));
+  const handleTypeChange = (type) => {
+    setFeedback(prev => ({ ...prev, type }));
+    setError("");
   };
 
-  const handleTypeChange = (value) => {
-    setFeedback(prev => ({ ...prev, type: value }));
+  const handleMessageChange = (e) => {
+    const value = e.target.value;
+    if (value.length <= maxLength) {
+      setFeedback(prev => ({ ...prev, message: value }));
+      setError("");
+    }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!feedback.type || !feedback.message) {
-      toast({
-        title: "Missing information",
-        description: "Please select a feedback type and provide your message.",
-        variant: "destructive",
-      });
+    if (!feedback.type) {
+      setError("Please select a feedback type.");
+      return;
+    }
+    
+    if (!feedback.message) {
+      setError("Please provide your feedback message.");
       return;
     }
     
     if (feedback.message.length < 10) {
-      toast({
-        title: "Message too short",
-        description: "Please provide more details (at least 10 characters).",
-        variant: "destructive",
-      });
+      setError("Message must be at least 10 characters long.");
       return;
     }
     
     setIsSubmitting(true);
+    setError("");
     
     try {
-      // This will be replaced with an actual API endpoint once implemented
+      // Simulate API call (replace with actual endpoint later)
       // await apiRequest('POST', '/api/feedback', feedback);
-      
-      // For now, just simulate success
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      setShowSuccess(true);
       setTimeout(() => {
         toast({
           title: "Feedback Sent",
           description: "Thank you for helping us improve! We'll review your feedback soon.",
           variant: "default",
+          className: "bg-green-50 border-green-200 text-green-800",
+          icon: <CheckCircle2 className="h-5 w-5" />,
         });
-        
-        setFeedback({
-          type: "",
-          message: ""
-        });
-        
+        setFeedback({ type: "", message: "" });
+        setShowSuccess(false);
         setOpen(false);
         setIsSubmitting(false);
-      }, 1000);
-      
+      }, 1500);
     } catch (error) {
       toast({
-        title: "Error sending feedback",
+        title: "Error",
         description: error.message || "Could not send feedback. Please try again later.",
         variant: "destructive",
+        className: "bg-red-50 border-red-200 text-red-800",
+        icon: <AlertTriangle className="h-5 w-5" />,
       });
       setIsSubmitting(false);
     }
   };
+
+  const characterProgress = (feedback.message.length / maxLength) * 100;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -108,7 +108,7 @@ const FeedbackDialog = () => {
         <Button 
           variant="outline" 
           size="sm" 
-          className="fixed bottom-6 right-6 shadow-lg z-30 flex items-center gap-2 bg-white hover:bg-gray-50 transition-all"
+          className="fixed bottom-6 right-6 shadow-lg z-30 flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all rounded-full px-4 py-2"
           aria-label="Provide feedback"
         >
           <MessageSquare className="h-4 w-4" />
@@ -116,91 +116,141 @@ const FeedbackDialog = () => {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="sm:max-w-lg rounded-lg">
+      <DialogContent className="sm:max-w-md rounded-xl bg-white/80 backdrop-blur-md border border-white/20 shadow-xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-primary/10 text-primary">
+            <div className="p-2 rounded-full bg-blue-100 text-blue-600">
               <MessageSquare className="h-5 w-5" />
             </div>
             <div>
-              <DialogTitle className="text-lg font-semibold">Share Your Feedback</DialogTitle>
-              <DialogDescription className="text-sm text-gray-600">
+              <DialogTitle className="text-xl font-bold text-gray-800">Share Your Feedback</DialogTitle>
+              <DialogDescription className="text-sm text-gray-500">
                 Help us improve your experience
               </DialogDescription>
             </div>
           </div>
         </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
-          <div className="space-y-2">
-            <Label htmlFor="feedback-type" className="text-sm font-medium text-gray-200">
-              What type of feedback do you have?
-            </Label>
-            <Select 
-              value={feedback.type} 
-              onValueChange={handleTypeChange}
-              disabled={isSubmitting}
+
+        <AnimatePresence>
+          {showSuccess ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex flex-col items-center justify-center py-10"
             >
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select feedback type" />
-              </SelectTrigger>
-              <SelectContent className="rounded-md bg-white">
-                {feedbackTypes.map(type => (
-                  <SelectItem 
-                    key={type.id} 
-                    value={type.id}
-                    className="flex items-center gap-2"
-                  >
-                    <span className="text-sm">{type.icon}</span>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="feedback-message" className="text-sm font-medium text-gray-200">
-              Your detailed feedback
-            </Label>
-            <Textarea
-              id="feedback-message"
-              name="message"
-              value={feedback.message}
-              onChange={handleChange}
-              placeholder="Please describe your feedback in detail. What happened? What did you expect? How can we improve?"
-              className="min-h-[150px] text-sm"
-              disabled={isSubmitting}
-            />
-            <p className="text-xs text-gray-200">
-              {feedback.message.length}/500 characters
-            </p>
-          </div>
-          
-          <DialogFooter className="gap-2 sm:gap-0">
-            <DangerButton 
-              type="button" 
-              variant="outline" 
-              onClick={() => setOpen(false)}
-              disabled={isSubmitting}
-              className="w-full sm:w-auto"
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1, rotate: 360 }}
+                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+              >
+                <CheckCircle2 className="h-16 w-16 text-green-500" />
+              </motion.div>
+              <p className="mt-4 text-lg font-semibold text-gray-800">Thank You!</p>
+              <p className="text-sm text-gray-500">Your feedback has been submitted.</p>
+            </motion.div>
+          ) : (
+            <motion.form
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onSubmit={handleSubmit}
+              className="space-y-4 py-4"
             >
-              Cancel
-            </DangerButton>
-            <Button 
-              type="submit"
-              disabled={isSubmitting || !feedback.type || !feedback.message}
-              className="w-full sm:w-auto border border-white bg-primary text-white hover:bg-primary/90 transition-all"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : "Send Feedback"}
-            </Button>
-          </DialogFooter>
-        </form>
+              <div className="space-y-2">
+                <Label htmlFor="feedback-type" className="text-sm font-medium text-gray-700">
+                  What type of feedback do you have?
+                </Label>
+                <div className="grid grid-cols-2 gap-3">
+                  {feedbackTypes.map(type => (
+                    <button
+                      key={type.id}
+                      type="button"
+                      onClick={() => handleTypeChange(type.id)}
+                      className={`flex items-center gap-2 p-3 rounded-lg border transition-all duration-200 ${
+                        feedback.type === type.id
+                          ? "border-blue-500 bg-blue-50 text-blue-600"
+                          : "border-gray-200 hover:bg-gray-50 text-gray-600"
+                      }`}
+                      disabled={isSubmitting}
+                      aria-label={`Select ${type.label}`}
+                    >
+                      <span className="text-lg">{type.icon}</span>
+                      <span className="text-sm font-medium">{type.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="feedback-message" className="text-sm font-medium text-gray-700">
+                  Your detailed feedback
+                </Label>
+                <Textarea
+                  id="feedback-message"
+                  name="message"
+                  value={feedback.message}
+                  onChange={handleMessageChange}
+                  placeholder="Please describe your feedback in detail. What happened? What did you expect? How can we improve?"
+                  className="min-h-[120px] text-sm rounded-lg border-gray-200 focus:ring-2 focus:ring-blue-300 transition-all"
+                  disabled={isSubmitting}
+                  aria-describedby="message-error"
+                />
+                <div className="flex items-center justify-between">
+                  <div className="relative flex items-center">
+                    <svg className="w-6 h-6" viewBox="0 0 36 36">
+                      <path
+                        className="fill-none stroke-gray-200 stroke-2"
+                        d="M18 2.0845
+                          a 15.9155 15.9155 0 0 1 0 31.831
+                          a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="fill-none stroke-blue-500 stroke-2"
+                        strokeDasharray={`${characterProgress}, 100`}
+                        d="M18 2.0845
+                          a 15.9155 15.9155 0 0 1 0 31.831
+                          a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span className="text-xs text-gray-500 ml-2">
+                      {feedback.message.length}/{maxLength}
+                    </span>
+                  </div>
+                  {error && (
+                    <p id="message-error" className="text-xs text-red-500">
+                      {error}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto border-gray-300 text-gray-700 hover:bg-gray-100 transition-all rounded-lg"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all rounded-lg flex items-center justify-center"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : "Send Feedback"}
+                </Button>
+              </DialogFooter>
+            </motion.form>
+          )}
+        </AnimatePresence>
       </DialogContent>
     </Dialog>
   );

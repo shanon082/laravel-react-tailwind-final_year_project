@@ -53,7 +53,11 @@ class TimetableController extends Controller
 
         $entries = $query->get();
         
-        return response()->json($entries);
+    
+        return Inertia::render('Timetable');
+
+        
+        //return response()->json($entries);
     }
 
     /**

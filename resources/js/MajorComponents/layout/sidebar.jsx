@@ -21,6 +21,10 @@ const Sidebar = () => {
   const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
 
+  // Debug: Log user and role
+  console.log("Sidebar: user =", user);
+  console.log("Sidebar: user.role =", user?.role);
+
   const getDashboardPath = () => {
     if (!user?.role) {
       console.warn("Sidebar: No user role found, defaulting to /dashboard");
@@ -190,7 +194,7 @@ const Sidebar = () => {
       </AnimatePresence>
 
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex md:flex-col fixed top-16 left-0 h-[calc(100vh-64px)] w-56 bg-white shadow-lg border-r border-gray-200 z-40">
+      <div className="hidden md:flex md:flex-col fixed top-16 left-0 h-[calc(100vh-64px)] w-80 bg-white shadow-lg border-r border-gray-200 z-40">
         <nav className="flex-1 px-3 py-2">
           <ul className="space-y-1">
             {filteredNavItems.length > 0 ? (

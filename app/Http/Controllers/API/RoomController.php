@@ -16,9 +16,9 @@ class RoomController extends Controller
      */
     public function index()
     {
-        $rooms = Room::all();
-        return response()->json($rooms);
+        return Inertia::render('Rooms');
     }
+
 
     /**
      * Store a newly created room in storage.
@@ -27,23 +27,42 @@ class RoomController extends Controller
      * @return \Illuminate\Http\Response
      */
     public function store(Request $request)
-    {
-        // Check if user is admin
-        if (!Auth::user()->isAdmin()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
-
-        $validated = $request->validate([
-            'name' => 'required|string|max:255|unique:rooms',
-            'type' => 'required|string',
-            'capacity' => 'required|integer|min:1',
-            'building' => 'required|string',
-        ]);
-
-        $room = Room::create($validated);
-
-        return response()->json($room, 201);
+{
+    if (!Auth::user()->isAdmin()) {
+        return response()->json(['message' => 'Unauthorized'], 403);
     }
+
+    $validated = $request->validate([
+        'name' => 'required|string|max:255|unique:rooms',
+        'type' => 'required|string|in:Lecture Hall,Laboratory,Seminar Room,Computer Lab',
+        'capacity' => 'required|integer|min:1',
+        'building' => 'required|string|max:255',
+    ]);
+
+    $room = Room::create($validated);
+
+    return response()->json($room, 201);
+}
+
+public function update(Request $request, $id)
+{
+    if (!Auth::user()->isAdmin()) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $room = Room::findOrFail($id);
+
+    $validated = $request->validate([
+        'name' => 'required|string|max:255|unique:rooms,name,' . $id,
+        'type' => 'required|string|in:Lecture Hall,Laboratory,Seminar Room,Computer Lab',
+        'capacity' => 'required|integer|min:1',
+        'building' => 'required|string|max:255',
+    ]);
+
+    $room->update($validated);
+
+    return response()->json($room);
+}
 
     /**
      * Display the specified room.
@@ -64,26 +83,7 @@ class RoomController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
-    {
-        // Check if user is admin
-        if (!Auth::user()->isAdmin()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
 
-        $room = Room::findOrFail($id);
-
-        $validated = $request->validate([
-            'name' => 'string|max:255|unique:rooms,name,' . $id,
-            'type' => 'string',
-            'capacity' => 'integer|min:1',
-            'building' => 'string',
-        ]);
-
-        $room->update($validated);
-
-        return response()->json($room);
-    }
 
     /**
      * Remove the specified room from storage.

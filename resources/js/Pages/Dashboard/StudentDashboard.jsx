@@ -96,9 +96,9 @@ export default function StudentDashboard({ auth }) {
   };
 
   return (
-    <Layout>
+    <>
       <Head title="Student Dashboard" />
-      <div>
+      <div className='sm:p-6 lg:p-8'>
         <div className="md:flex md:items-center md:justify-between mb-6">
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:truncate sm:text-3xl">Student Dashboard</h1>
@@ -216,6 +216,6 @@ export default function StudentDashboard({ auth }) {
           </TabsContent>
         </Tabs>
       </div>
-     </Layout>
+     </>
   );
 }

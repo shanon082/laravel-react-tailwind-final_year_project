@@ -13,16 +13,16 @@ const Layout = ({ children }) => {
       <Header />
 
       <div className="flex flex-1">
-        {/* Sidebar: Fixed, 224px */}
+        {/* Sidebar: Fixed, 320px on desktop, toggled on mobile */}
         <Sidebar />
 
         {/* Main Content: Scrollable */}
         <main
-          className="flex-1 w-full mx-auto sm:px-6 lg:px-8  md:ml-20"
+          className="flex-1 w-full mx-auto sm:px-6 lg:px-8 md:ml-80" // Changed md:ml-20 to md:ml-80 to match sidebar width
           style={{
-            marginTop: "40px", // Account for fixed header height
-            minHeight: "calc(100vh - 128px)", // Adjust for header (64px) + footer (64px)
-            overflowY: "auto", // Ensure main content is scrollable
+            marginTop: "64px", 
+            minHeight: "calc(100vh - 128px)",
+            overflowY: "hidden",
           }}
         >
           {children}

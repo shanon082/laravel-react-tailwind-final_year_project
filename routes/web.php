@@ -11,6 +11,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\TimetableController;
+use App\Models\Room;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -42,24 +43,85 @@ Route::middleware('auth')->group(function () {
 });
 
 // API Routes
-Route::middleware('auth:sanctum')->prefix('api')->group(function () {
-    Route::apiResource('courses', APICourseController::class);
-    Route::get('/courses/{id}/lecturers', [APICourseController::class, 'lecturers']);
-    Route::get('/courses/{id}/timetable', [APICourseController::class, 'timetableEntries']);
-    Route::get('/courses/{id}/students', [APICourseController::class, 'students']);
+// Route::middleware('auth:sanctum')->group(function () {
+//     Route::apiResource('courses', APICourseController::class);
+//     Route::get('/courses/{id}/lecturers', [APICourseController::class, 'lecturers']);
+//     Route::get('/courses/{id}/timetable', [APICourseController::class, 'timetableEntries']);
+//     Route::get('/courses/{id}/students', [APICourseController::class, 'students']);
 
-    Route::apiResource('lecturers', APILecturerController::class);
-    Route::get('/lecturers/{id}/courses', [APILecturerController::class, 'courses']);
-    Route::get('/lecturers/{id}/timetable', [APILecturerController::class, 'timetableEntries']);
-    Route::get('/lecturers/{id}/availability', [APILecturerController::class, 'availability']);
+//     Route::apiResource('lecturers', APILecturerController::class);
+//     Route::get('/lecturers/{id}/courses', [APILecturerController::class, 'courses']);
+//     Route::get('/lecturers/{id}/timetable', [APILecturerController::class, 'timetableEntries']);
+//     Route::get('/lecturers/{id}/availability', [APILecturerController::class, 'availability']);
 
-    Route::apiResource('rooms', APIRoomController::class);
-    Route::get('/rooms/{id}/timetable', [APIRoomController::class, 'timetableEntries']);
-    Route::get('/rooms/{id}/availability', [APIRoomController::class, 'availability']);
+//     Route::apiResource('rooms', APIRoomController::class);
+//     Route::get('/rooms/{id}/timetable', [APIRoomController::class, 'timetableEntries']);
+//     Route::get('/rooms/{id}/availability', [APIRoomController::class, 'availability']);
 
-    Route::apiResource('timetable', APITimetableController::class);
-    Route::get('/timetable/{id}/conflicts', [APITimetableController::class, 'conflicts']);
-    Route::post('/timetable/generate', [APITimetableController::class, 'generate']);
+//     Route::apiResource('timetable', APITimetableController::class);
+//     Route::get('/timetable/{id}/conflicts', [APITimetableController::class, 'conflicts']);
+//     Route::post('/timetable/generate', [APITimetableController::class, 'generate']);
+// });
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/rooms', [RoomController::class, 'index']);
+    Route::get('/rooms/{id}', [RoomController::class, 'show']);
+    Route::post('/rooms', [RoomController::class, 'store']);
+    Route::put('/rooms/{id}', [RoomController::class, 'update']);
+    Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
+});
+
+Route::middleware('auth')->group(function () {
+    Route::get('/rooms', function () {
+        $query = Room::query();
+
+        if (request()->has('search') && request()->search) {
+            $query->where('name', 'like', '%' . request()->search . '%');
+        }
+        if (request()->has('type') && request()->type) {
+            $query->where('type', request()->type);
+        }
+        if (request()->has('building') && request()->building) {
+            $query->where('building', request()->building);
+        }
+
+        $perPage = request()->input('per_page', 10);
+        $rooms = $query->select('id', 'name', 'type', 'building', 'capacity')
+                       ->paginate($perPage);
+
+        $buildings = Room::distinct('building')->pluck('building');
+
+        return inertia('Rooms', [
+            'auth' => [
+                'user' => auth()->user() ? [
+                    'id' => auth()->user()->id,
+                    'name' => auth()->user()->name,
+                    'role' => auth()->user()->role,
+                ] : null,
+            ],
+            'roomsResponse' => [
+                'data' => $rooms->items(),
+                'current_page' => $rooms->currentPage(),
+                'last_page' => $rooms->lastPage(),
+                'total' => $rooms->total(),
+                'buildings' => $buildings,
+            ],
+            'filters' => [
+                'search' => request()->search ?? '',
+                'type' => request()->type ?? '',
+                'building' => request()->building ?? '',
+            ],
+        ]);
+    })->name('rooms');
+
+    Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
+    Route::put('/rooms/{id}', [RoomController::class, 'update'])->name('rooms.update');
+});
+
+// Remove or comment out the auth:sanctum group for /rooms to avoid conflict
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/rooms/{id}', [RoomController::class, 'show']); // Keep for API if needed
+    Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
 });
 
 require __DIR__.'/auth.php';

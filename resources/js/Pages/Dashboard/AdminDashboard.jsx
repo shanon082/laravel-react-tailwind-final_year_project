@@ -7,7 +7,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../Components/Tab";
 import { Download, Plus, AlertCircle, PieChart, BarChart, AlertCircleIcon, Calendar } from "lucide-react";
 import { Badge } from "../../Components/Badge";
 import { useToast } from "../../hooks/use-toast";
-import Layout from '@/MajorComponents/layout/layout';
+import Layout from '../../MajorComponents/layout/layout';
 import { motion } from "framer-motion";
 
 // Lazy load heavy components
@@ -35,15 +35,13 @@ export default function AdminDashboard({ auth }) {
   const semester = "First";
   const currentWeek = "3";
 
-  // Mock query for demo; replace with actual API call
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
-      // Simulate API call
       await new Promise(resolve => setTimeout(resolve, 1000));
       return { courses: 50, lecturers: 20, conflicts: 5 };
     },
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+    staleTime: 5 * 60 * 1000,
   });
 
   const handleFilterChange = (newFilters) => {
@@ -61,7 +59,6 @@ export default function AdminDashboard({ auth }) {
       description: "Your timetable is being exported to PDF. You'll be notified when it's ready.",
       duration: 5000,
     });
-    // Simulate export process
     setTimeout(() => {
       toast({
         title: "Export Complete",
@@ -72,18 +69,18 @@ export default function AdminDashboard({ auth }) {
   };
 
   return (
-    <Layout>
+    <>
       <Head title="Admin Dashboard" />
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="p-4 sm:p-6 lg:p-8"
+        className="sm:pt-6 lg:pt-8" // Only add top padding, avoid stacking with Layout's horizontal padding
       >
         {/* Header Section */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 sm:px-6 lg:px-8">
           <div className="min-w-0 flex-1">
-            <h1 className="text-3xl font-extrabold text-gray-900 sm:text-4xl">
+            <h1 className="text-2xl font-bold text-gray-900 sm:text-3xl">
               Admin Dashboard
             </h1>
             <div className="mt-3 flex flex-wrap gap-4 text-sm text-gray-600">
@@ -121,12 +118,8 @@ export default function AdminDashboard({ auth }) {
         </div>
 
         {/* Tabs Section */}
-        <Tabs
-          value={activeTab}
-          onValueChange={setActiveTab}
-          className="w-full"
-        >
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 mb-6 bg-gray-100 p-1 rounded-lg">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full sm:px-6 lg:px-8">
+          <TabsList className="grid grid-cols-[repeat(auto-fit,minmax(120px,1fr))] mb-6 bg-gray-100 p-1 rounded-lg">
             {[
               { value: "overview", label: "Overview", icon: PieChart },
               { value: "timetable", label: "Timetables", icon: Calendar },
@@ -144,7 +137,6 @@ export default function AdminDashboard({ auth }) {
             ))}
           </TabsList>
 
-          {/* Tab Contents with Lazy Loading */}
           <Suspense fallback={<SkeletonCard />}>
             <TabsContent value="overview" className="mt-6">
               {isStatsLoading ? (
@@ -186,7 +178,6 @@ export default function AdminDashboard({ auth }) {
                         </CardTitle>
                       </CardHeader>
                       <CardContent>
-                        {/* Replace placeholder with actual chart */}
                         <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-md">
                           <p className="text-gray-500">Room utilization chart (to be implemented)</p>
                         </div>
@@ -258,6 +249,6 @@ export default function AdminDashboard({ auth }) {
           </Suspense>
         </Tabs>
       </motion.div>
-    </Layout>
+    </>
   );
 }
