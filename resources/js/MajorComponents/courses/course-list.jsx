@@ -1,9 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle 
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
 } from "../../Components/card";
 import {
   Table,
@@ -14,7 +13,7 @@ import {
   TableRow,
 } from "../../Components/table";
 import { Button } from "../../Components/button";
-import { 
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -22,26 +21,24 @@ import {
 } from "../../Components/dropdown-menu";
 import { Badge } from "../../Components/badge";
 import { Edit, MoreHorizontal, Loader2 } from "lucide-react";
-// The Course type import has been removed because JavaScript does not support TypeScript types
-// import { Course } from "../..//types";
+import { router } from "@inertiajs/react";
 
-const CourseList = ({ onEditCourse }) => {
-  const { data: courses, isLoading } = useQuery({
-    queryKey: ['/api/courses'],
-  });
+const CourseList = ({ onEditCourse, coursesResponse }) => {
+  console.log("coursesResponse:", coursesResponse); // Debug log
+  const courses = Array.isArray(coursesResponse?.data) ? coursesResponse.data : [];
+  const currentPage = coursesResponse?.current_page || 1;
+  const lastPage = coursesResponse?.last_page || 1;
+  const total = coursesResponse?.total || courses.length;
 
-  if (isLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Courses</CardTitle>
-        </CardHeader>
-        <CardContent className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </CardContent>
-      </Card>
+  console.log("Courses to render:", courses); // Debug log
+
+  const setCurrentPage = (page) => {
+    router.get(
+      route("courses"),
+      { page, per_page: 10 },
+      { preserveState: true, preserveScroll: true }
     );
-  }
+  };
 
   if (!courses || courses.length === 0) {
     return (
@@ -61,7 +58,7 @@ const CourseList = ({ onEditCourse }) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Courses ({courses.length})</CardTitle>
+        <CardTitle>Courses ({total})</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
@@ -83,18 +80,18 @@ const CourseList = ({ onEditCourse }) => {
                   <TableCell className="font-medium">{course.code}</TableCell>
                   <TableCell>{course.name}</TableCell>
                   <TableCell>{course.department}</TableCell>
-                  <TableCell>Year {course.yearLevel}</TableCell>
+                  <TableCell>Year {course.year_level}</TableCell>
                   <TableCell>
-                    {course.isElective ? (
+                    {course.is_elective ? (
                       <Badge variant="secondary">Elective</Badge>
                     ) : (
                       <Badge>Core</Badge>
                     )}
                   </TableCell>
                   <TableCell>
-                    <div 
-                      className="w-6 h-6 rounded-full" 
-                      style={{ backgroundColor: course.colorCode }}
+                    <div
+                      className="w-6 h-6 rounded-full"
+                      style={{ backgroundColor: course.color_code }}
                     ></div>
                   </TableCell>
                   {onEditCourse && (
@@ -119,6 +116,25 @@ const CourseList = ({ onEditCourse }) => {
             </TableBody>
           </Table>
         </div>
+        {lastPage > 1 && (
+          <div className="flex justify-between mt-4">
+            <Button
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(currentPage - 1)}
+            >
+              Previous
+            </Button>
+            <span>
+              Page {currentPage} of {lastPage}
+            </span>
+            <Button
+              disabled={currentPage === lastPage}
+              onClick={() => setCurrentPage(currentPage + 1)}
+            >
+              Next
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

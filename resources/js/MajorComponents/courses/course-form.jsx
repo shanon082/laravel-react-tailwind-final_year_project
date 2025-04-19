@@ -1,18 +1,18 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../../Components/card";
 import { Button } from "../../Components/button";
 import { Input } from "../../Components/input";
 import Checkbox from "../../Components/Checkbox";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "../../Components/form";
-import { Loader2 } from "lucide-react";
+import { Loader2, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "../../lib/queryClient";
-import { queryClient } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import DangerButton from "@/Components/DangerButton";
+import { router } from "@inertiajs/react";
 
 const courseFormSchema = z.object({
   code: z.string().min(3, { message: "Course code must be at least 3 characters" }),
@@ -26,10 +26,19 @@ const courseFormSchema = z.object({
 const CourseForm = ({ courseId, onClose }) => {
   const { toast } = useToast();
   const isEditMode = courseId !== null;
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: course, isLoading: isCourseLoading } = useQuery({
-    queryKey: ["/api/courses", courseId],
+    queryKey: ["courses", courseId],
     enabled: isEditMode,
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/courses/${courseId}`);
+      if (!response.ok) {
+        throw new Error("Failed to fetch course data");
+      }
+      return response.json();
+    },
   });
 
   const form = useForm({
@@ -57,60 +66,138 @@ const CourseForm = ({ courseId, onClose }) => {
     }
   }, [course, form, isEditMode]);
 
-  const createMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiRequest("POST", "/api/courses", data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    console.log("Submitting form with data:", data);
+
+    // Validate colorCode and yearLevel
+    if (!data.colorCode.match(/^#[0-9A-F]{6}$/i)) {
+      form.setError("color_code", { message: "Invalid color code" });
+      setIsSubmitting(false);
+      return;
+    }
+    if (isNaN(data.yearLevel) || data.yearLevel < 1 || data.yearLevel > 6) {
+      form.setError("year_level", { message: "Year level must be between 1 and 6" });
+      setIsSubmitting(false);
+      return;
+    }
+
+    const payload = {
+      code: data.code,
+      name: data.name,
+      department: data.department,
+      is_elective: data.isElective,
+      color_code: data.colorCode.toUpperCase(),
+      year_level: Number(data.yearLevel),
+    };
+
+    console.log("Payload being sent:", JSON.stringify(payload, null, 2));
+
+    try {
+      if (isEditMode) {
+        await router.put(
+          route("courses.update", courseId),
+          payload,
+          {
+            onSuccess: () => {
+              setShowSuccess(true);
+              setTimeout(() => {
+                toast({
+                  title: "Course Updated",
+                  description: "The course has been successfully updated.",
+                  className: "bg-green-50 border-green-200 text-green-800",
+                  icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setShowSuccess(false);
+                setIsSubmitting(false);
+                onClose();
+                router.visit(route("courses"), { only: ["coursesResponse"] });
+              }, 1000);
+            },
+            onError: (errors) => {
+              console.error("Form submission errors:", errors);
+              const fieldMap = {
+                color_code: "colorCode",
+                year_level: "yearLevel",
+                is_elective: "isElective",
+                code: "code",
+                name: "name",
+                department: "department",
+              };
+              Object.entries(errors).forEach(([serverField, message]) => {
+                const clientField = fieldMap[serverField] || serverField;
+                form.setError(clientField, { message });
+              });
+              toast({
+                title: "Failed to Update Course",
+                description: Object.values(errors).join(", ") || "An error occurred.",
+                variant: "destructive",
+                className: "bg-red-50 border-red-200 text-red-800",
+              });
+              setIsSubmitting(false);
+            },
+          }
+        );
+      } else {
+        await router.post(
+          route("courses.store"),
+          payload,
+          {
+            onSuccess: () => {
+              setShowSuccess(true);
+              setTimeout(() => {
+                toast({
+                  title: isEditMode ? "Course Updated" : "Course Created",
+                  description: `The course has been successfully ${isEditMode ? "updated" : "created"}.`,
+                  className: "bg-green-50 border-green-200 text-green-800",
+                  icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setShowSuccess(false);
+                setIsSubmitting(false);
+                onClose();
+                router.visit(route("courses"), { only: ["coursesResponse"] }, {
+                  onSuccess: (page) => {
+                    console.log("router.visit success:", page.props.coursesResponse); // Debug log
+                  },
+                  onError: (errors) => {
+                    console.error("router.visit errors:", errors);
+                  },
+                });
+              }, 1000);
+            },
+            onError: (errors) => {
+              console.error("Form submission errors:", errors);
+              const fieldMap = {
+                color_code: "colorCode",
+                year_level: "yearLevel",
+                is_elective: "isElective",
+                code: "code",
+                name: "name",
+                department: "department",
+              };
+              Object.entries(errors).forEach(([serverField, message]) => {
+                const clientField = fieldMap[serverField] || serverField;
+                form.setError(clientField, { message });
+              });
+              toast({
+                title: "Failed to Create Course",
+                description: Object.values(errors).join(", ") || "An error occurred.",
+                variant: "destructive",
+                className: "bg-red-50 border-red-200 text-red-800",
+              });
+              setIsSubmitting(false);
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
       toast({
-        title: "Course created",
-        description: "The course has been successfully created.",
-      });
-      onClose();
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to create course",
-        description: error.message,
+        title: "Submission Error",
+        description: "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
-    },
-  });
-
-  const updateMutation = useMutation({
-    mutationFn: async (data) => {
-      const response = await apiRequest("PUT", `/api/courses/${courseId}`, data);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/courses"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/courses", courseId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/timetable"] });
-      toast({
-        title: "Course updated",
-        description: "The course has been successfully updated.",
-      });
-      onClose();
-    },
-    onError: (error) => {
-      toast({
-        title: "Failed to update course",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const isSubmitting = createMutation.isPending || updateMutation.isPending;
-
-  const onSubmit = (data) => {
-    if (isEditMode) {
-      updateMutation.mutate(data);
-    } else {
-      createMutation.mutate(data);
+      setIsSubmitting(false);
     }
   };
 
@@ -209,7 +296,7 @@ const CourseForm = ({ courseId, onClose }) => {
                         min={1}
                         max={6}
                         {...field}
-                        onChange={(e) => field.onChange(parseInt(e.target.value))}
+                        onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
                         aria-invalid={!!form.formState.errors.yearLevel}
                         aria-describedby={form.formState.errors.yearLevel ? "yearLevel-error" : undefined}
                       />
@@ -232,7 +319,8 @@ const CourseForm = ({ courseId, onClose }) => {
                         aria-label="Select course color"
                       />
                       <Input
-                        {...field}
+                        value={field.value}
+                        readOnly
                         placeholder="#3B82F6"
                         aria-invalid={!!form.formState.errors.colorCode}
                         aria-describedby={form.formState.errors.colorCode ? "colorCode-error" : undefined}

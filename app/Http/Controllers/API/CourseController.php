@@ -5,27 +5,26 @@ namespace App\Http\Controllers\API;
 use App\Http\Controllers\Controller;
 use App\Models\Course;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class CourseController extends Controller
 {
-    public function index(Request $request)
-    {
-        $query = Course::query();
-        if ($request->has('search')) {
-            $query->where('name', 'like', '%' . $request->search . '%')
-                  ->orWhere('code', 'like', '%' . $request->search . '%');
-        }
-        return $query->get();
+    public function index(){
+        return Inertia::render('Courses');
     }
 
     public function store(Request $request)
     {
+        if (!Auth::user()->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
         $validated = $request->validate([
             'code' => 'required|string|min:3|unique:courses',
             'name' => 'required|string|min:3',
             'department' => 'required|string',
             'isElective' => 'boolean',
-            'colorCode' => 'required|string',
+            'colorCode' => 'required|string|regex:/^#[0-9A-F]{6}$/i',
             'yearLevel' => 'required|integer|min:1|max:6',
         ]);
 
@@ -42,18 +41,22 @@ class CourseController extends Controller
 
     public function show($id)
     {
-        return Course::findOrFail($id);
+        $course = Course::findOrFail($id);
+        return response()->json($course);
     }
 
     public function update(Request $request, $id)
     {
+        if (!Auth::user()->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
         $course = Course::findOrFail($id);
         $validated = $request->validate([
             'code' => 'required|string|min:3|unique:courses,code,' . $id,
             'name' => 'required|string|min:3',
             'department' => 'required|string',
             'isElective' => 'boolean',
-            'colorCode' => 'required|string',
+            'colorCode' => 'required|string|regex:/^#[0-9A-F]{6}$/i',
             'yearLevel' => 'required|integer|min:1|max:6',
         ]);
 
@@ -63,6 +66,9 @@ class CourseController extends Controller
 
     public function destroy($id)
     {
+        if (!Auth::user()->isAdmin()) {
+            return response()->json(['message' => 'Unauthorized'], 403);
+        }
         $course = Course::findOrFail($id);
         $course->delete();
         return response()->json(['message' => 'Course deleted']);

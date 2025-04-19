@@ -56,7 +56,6 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
     queryFn: () => apiRequest("GET", `/rooms/${roomId}`),
     enabled: isEditMode && !stableInitialData,
     initialData: stableInitialData || undefined,
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
   // Initialize react-hook-form

@@ -38,7 +38,6 @@ const lecturerFormSchema = z.object({
 
 const AddLecturerDialog = ({ open, onOpenChange }) => {
   const { toast } = useToast();
-
   const {
     register,
     handleSubmit,
@@ -56,23 +55,28 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
   });
 
   const onSubmit = async (data) => {
+    console.log("Form submitted with data:", data);
     try {
-      const userResponse = await apiRequest("POST", "/api/register", {
+      console.log("Sending user registration request...");
+      const userResponse = await apiRequest("POST", "/register", {
         username: data.email.split("@")[0],
         password: `${data.fullName.split(" ")[0].toLowerCase()}123`,
         fullName: data.fullName,
         email: data.email,
         role: UserRole.LECTURER,
       });
-      const userData = await userResponse.json();
+      const userData = await userResponse;
+      console.log("User registered:", userData);
 
-      const lecturerResponse = await apiRequest("POST", "/api/lecturers", {
+      console.log("Sending lecturer creation request...");
+      const lecturerResponse = await apiRequest("POST", "/lecturers", {
         userId: userData.id,
         department: data.department,
         specialization: data.specialization,
-        contactNumber: data.contactNumber,
+        contact_number: data.contactNumber,
       });
-      await lecturerResponse.json();
+      await lecturerResponse;
+      console.log("Lecturer created");
 
       toast({
         title: "Lecturer added",
@@ -83,6 +87,7 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
       queryClient.invalidateQueries(["/api/lecturers"]);
       onOpenChange(false);
     } catch (error) {
+      console.error("Submission error:", error);
       toast({
         title: "Error adding lecturer",
         description: error.message || "Could not add lecturer. Please try again.",
@@ -92,7 +97,10 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
   };
 
   return (
-    <DialogContent className="sm:max-w-md md:max-w-lg bg-white shadow-lg rounded-lg animate-fade-in">
+    <DialogContent
+      onInteractOutside={(e) => e.preventDefault()}
+      className="sm:max-w-md md:max-w-lg bg-white shadow-lg rounded-lg animate-fade-in"
+    >
       <DialogHeader>
         <DialogTitle className="text-xl font-semibold text-gray-900">Add New Lecturer</DialogTitle>
         <DialogDescription className="text-sm text-gray-600">

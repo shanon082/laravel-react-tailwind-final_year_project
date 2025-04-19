@@ -69,59 +69,42 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/rooms', [RoomController::class, 'store']);
     Route::put('/rooms/{id}', [RoomController::class, 'update']);
     Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
+
+    Route::get('/courses', [CourseController::class, 'index']);
+    Route::get('/courses/{id}', [CourseController::class, 'show']);
+    Route::post('/courses', [CourseController::class, 'store']);
+    Route::put('/courses/{id}', [CourseController::class, 'update']);
+    Route::delete('/courses/{id}', [CourseController::class, 'destroy']);
+
+    Route::get('/lecturers', [LecturerController::class, 'index']);
+    Route::get('/lecturers/{id}', [LecturerController::class, 'show']);
+    Route::post('/lecturers', [LecturerController::class, 'store']);    
+    Route::put('/lecturers/{id}', [LecturerController::class, 'update']);
+    Route::delete('/lecturers/{id}', [LecturerController::class, 'destroy']);
 });
 
 Route::middleware('auth')->group(function () {
-    Route::get('/rooms', function () {
-        $query = Room::query();
-
-        if (request()->has('search') && request()->search) {
-            $query->where('name', 'like', '%' . request()->search . '%');
-        }
-        if (request()->has('type') && request()->type) {
-            $query->where('type', request()->type);
-        }
-        if (request()->has('building') && request()->building) {
-            $query->where('building', request()->building);
-        }
-
-        $perPage = request()->input('per_page', 10);
-        $rooms = $query->select('id', 'name', 'type', 'building', 'capacity')
-                       ->paginate($perPage);
-
-        $buildings = Room::distinct('building')->pluck('building');
-
-        return inertia('Rooms', [
-            'auth' => [
-                'user' => auth()->user() ? [
-                    'id' => auth()->user()->id,
-                    'name' => auth()->user()->name,
-                    'role' => auth()->user()->role,
-                ] : null,
-            ],
-            'roomsResponse' => [
-                'data' => $rooms->items(),
-                'current_page' => $rooms->currentPage(),
-                'last_page' => $rooms->lastPage(),
-                'total' => $rooms->total(),
-                'buildings' => $buildings,
-            ],
-            'filters' => [
-                'search' => request()->search ?? '',
-                'type' => request()->type ?? '',
-                'building' => request()->building ?? '',
-            ],
-        ]);
-    })->name('rooms');
-
+    Route::get('/rooms', [RoomController::class, 'index'])->name('rooms');
     Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
     Route::put('/rooms/{id}', [RoomController::class, 'update'])->name('rooms.update');
+    Route::delete('/rooms/{id}', [RoomController::class, 'destroy'])->name('rooms.destroy');
+
+
+});
+Route::middleware('auth')->group(function () {
+    Route::get('/courses', [CourseController::class, 'index'])->name('courses');
+    Route::get('/courses/{id}', [CourseController::class, 'show'])->name('courses.show');
+    Route::post('/courses', [CourseController::class, 'store'])->name('courses.store');
+    Route::put('/courses/{id}', [CourseController::class, 'update'])->name('courses.update');
+    Route::delete('/courses/{id}', [CourseController::class, 'destroy'])->name('courses.destroy');
 });
 
-// Remove or comment out the auth:sanctum group for /rooms to avoid conflict
-Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/rooms/{id}', [RoomController::class, 'show']); // Keep for API if needed
-    Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
+Route::middleware('auth')->group(function () {
+    Route::get('/lecturers', [LecturerController::class, 'index'])->name('lecturers');
+    Route::get('/lecturers/{id}', [LecturerController::class, 'show'])->name('lecturers.show');
+    Route::post('/lecturers', [LecturerController::class, 'store'])->name('lecturers.store');
+    Route::put('/lecturers/{id}', [LecturerController::class, 'update'])->name('lecturers.update');
+    Route::delete('/lecturers/{id}', [LecturerController::class, 'destroy'])->name('lecturers.destroy');
 });
 
 require __DIR__.'/auth.php';

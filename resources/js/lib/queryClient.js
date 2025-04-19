@@ -8,17 +8,27 @@ async function throwIfResNotOk(res) {
 }
 
 export async function apiRequest(method, path, body = null) {
-  const url = `/api${path}`; // Ensure /api prefix
+  if (method !== "GET") {
+    await fetch("http://127.0.0.1:8000/sanctum/csrf-cookie", {
+      credentials: "include",
+    });
+  }
+
+  const cleanPath = path.startsWith("/api") ? path.replace("/api", "") : path;
+  const url = `/api${cleanPath}`;
+  console.log("Request URL:", url);
+
   const options = {
     method,
     headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-XSRF-TOKEN': document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || '', // Include CSRF token
-      'Authorization': `Bearer ${localStorage.getItem('token') || ''}`,
-      // Do NOT include X-Inertia header
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "X-XSRF-TOKEN": document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || "",
+      ...(localStorage.getItem("token") && path !== "/courses"
+        ? { Authorization: `Bearer ${localStorage.getItem("token")}` }
+        : {}),
     },
-    credentials: 'include', // Include cookies for Sanctum session
+    credentials: "include",
   };
 
   if (body) {
@@ -29,9 +39,9 @@ export async function apiRequest(method, path, body = null) {
 
   if (!response.ok) {
     if (response.status === 401) {
-      throw new Error('Unauthorized');
+      throw new Error("Unauthorized");
     }
-    throw new Error('Network response was not ok');
+    await throwIfResNotOk(response);
   }
 
   return response.json();

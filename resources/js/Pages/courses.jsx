@@ -2,32 +2,38 @@ import { useState } from "react";
 import Layout from "../MajorComponents/layout/layout";
 import CourseList from "../MajorComponents/courses/course-list";
 import CourseForm from "../MajorComponents/courses/course-form";
+import Modal from "../components/modal"; // Use the provided Modal component
 import { Button } from "../components/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types";
 import { Head } from "@inertiajs/react";
 
-const Courses = ({ auth }) => {
+const Courses = ({ auth, coursesResponse }) => {
+  console.log("Courses props:", { auth, coursesResponse }); // Debug log
   const { user } = useAuth();
-  const [isAddingCourse, setIsAddingCourse] = useState(false);
-  const [editingCourseId, setEditingCourseId] = useState(null);
+  const [modalState, setModalState] = useState({
+    isOpen: false,
+    courseId: null,
+    isEditMode: false,
+  });
 
   const isAdmin = user?.role === UserRole.ADMIN;
 
+  const openModal = (courseId = null, isEditMode = false) => {
+    setModalState({ isOpen: true, courseId, isEditMode });
+  };
+
+  const closeModal = () => {
+    setModalState({ isOpen: false, courseId: null, isEditMode: false });
+  };
+
   const handleAddClick = () => {
-    setIsAddingCourse(true);
-    setEditingCourseId(null);
+    openModal(null, false);
   };
 
   const handleEditClick = (courseId) => {
-    setEditingCourseId(courseId);
-    setIsAddingCourse(false);
-  };
-
-  const handleFormClose = () => {
-    setIsAddingCourse(false);
-    setEditingCourseId(null);
+    openModal(courseId, true);
   };
 
   if (!user) {
@@ -49,8 +55,8 @@ const Courses = ({ auth }) => {
             <div className="mt-4 md:mt-0">
               <Button
                 onClick={handleAddClick}
-                disabled={isAddingCourse}
-                className={`flex items-center ${isAddingCourse ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
+                disabled={modalState.isOpen}
+                className={`flex items-center ${modalState.isOpen ? 'opacity-50 cursor-not-allowed' : 'hover:bg-blue-600'}`}
                 title="Add a new course"
               >
                 <Plus className="-ml-1 mr-2 h-5 w-5" />
@@ -60,13 +66,29 @@ const Courses = ({ auth }) => {
           )}
         </div>
 
-        {(isAddingCourse || editingCourseId) && isAdmin && (
-          <div className="animate-fade-in">
-            <CourseForm courseId={editingCourseId} onClose={handleFormClose} />
+        <Modal
+          show={modalState.isOpen}
+          onClose={closeModal}
+          maxWidth="2xl"
+          closeable={true}
+        >
+          <div className="p-6">
+            <h2 className="text-xl font-semibold mb-4">
+              {modalState.isEditMode ? "Edit Course" : "Add New Course"}
+            </h2>
+            {modalState.isOpen && isAdmin && (
+              <CourseForm
+                courseId={modalState.courseId}
+                onClose={closeModal}
+              />
+            )}
           </div>
-        )}
+        </Modal>
 
-        <CourseList onEditCourse={isAdmin ? handleEditClick : undefined} />
+        <CourseList
+          onEditCourse={isAdmin ? handleEditClick : undefined}
+          coursesResponse={coursesResponse}
+        />
       </div>
     </Layout>
   );
