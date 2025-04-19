@@ -9,6 +9,7 @@ import { Badge } from "../../Components/Badge";
 import { useToast } from "../../hooks/use-toast";
 import Layout from '../../MajorComponents/layout/layout';
 import { motion } from "framer-motion";
+import SecondaryButton from '@/Components/SecondaryButton';
 
 // Lazy load heavy components
 const TimetableGrid = lazy(() => import("../../MajorComponents/timetable/timetable-grid"));
@@ -96,7 +97,7 @@ export default function AdminDashboard({ auth }) {
             </div>
           </div>
           <div className="mt-4 sm:mt-0 flex gap-3">
-            <Button
+            <SecondaryButton
               variant="outline"
               onClick={handleExport}
               className="flex items-center gap-2 hover:bg-gray-100 transition-colors"
@@ -104,7 +105,7 @@ export default function AdminDashboard({ auth }) {
             >
               <Download className="h-5 w-5" />
               Export
-            </Button>
+            </SecondaryButton>
             <Link href="/timetable?generate=true">
               <Button
                 className="flex items-center gap-2 bg-primary hover:bg-primary-dark transition-colors"

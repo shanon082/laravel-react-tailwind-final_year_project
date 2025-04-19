@@ -1,4 +1,4 @@
-import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon, BookOpenTextIcon } from 'lucide-react';
+import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon, BookOpenTextIcon, Building2Icon, Users2 } from 'lucide-react';
 import StatsCard from './stats-card';
 import { useQuery } from '@tanstack/react-query';
 import axios from "axios";
@@ -54,7 +54,7 @@ const QuickStats = () => {
       <StatsCard 
         title="Lecturers"
         value={stats?.totalLecturers || 0}
-        icon={<Users className="h-6 w-6 text-white" />}
+        icon={<Users2 className="h-6 w-6 text-white" />}
         iconBgColor="bg-secondary"
         linkText="View all lecturers"
         linkHref="/lecturers"
@@ -63,7 +63,7 @@ const QuickStats = () => {
       <StatsCard 
         title="Available Rooms"
         value={stats?.availableRooms || 0}
-        icon={<BuildingIcon className="h-6 w-6 text-white" />}
+        icon={<Building2Icon className="h-6 w-6 text-white" />}
         iconBgColor="bg-accent"
         linkText="View all rooms"
         linkHref="/rooms"

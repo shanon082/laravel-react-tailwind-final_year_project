@@ -15,6 +15,7 @@ import { CheckCircle2, MessageSquare, Loader2, AlertTriangle } from "lucide-reac
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
+import DangerButton from "@/Components/DangerButton";
 
 const feedbackTypes = [
   { id: "bug", label: "Bug Report", icon: "🐛" },
@@ -226,7 +227,7 @@ const FeedbackDialog = () => {
               </div>
 
               <DialogFooter className="gap-2 sm:gap-0">
-                <Button
+                <DangerButton
                   type="button"
                   variant="outline"
                   onClick={() => setOpen(false)}
@@ -234,7 +235,7 @@ const FeedbackDialog = () => {
                   className="w-full sm:w-auto border-gray-300 text-gray-700 hover:bg-gray-100 transition-all rounded-lg"
                 >
                   Cancel
-                </Button>
+                </DangerButton>
                 <Button
                   type="submit"
                   disabled={isSubmitting}

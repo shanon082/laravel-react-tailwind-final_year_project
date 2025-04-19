@@ -97,7 +97,7 @@ export default function StudentDashboard({ auth }) {
 
   return (
     <>
-      <Head title="Student Dashboard" />
+      <Head title="Student_Dashboard" />
       <div className='sm:p-6 lg:p-8'>
         <div className="md:flex md:items-center md:justify-between mb-6">
           <div className="min-w-0 flex-1">

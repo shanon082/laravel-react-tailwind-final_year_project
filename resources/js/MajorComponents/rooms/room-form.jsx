@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
-import { useForm as useInertiaForm, router } from "@inertiajs/react";
+import { useEffect, useMemo, useState } from "react";
+import { router } from "@inertiajs/react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm as useReactHookForm } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useQuery } from "@tanstack/react-query";
 import {
   Dialog,
@@ -32,6 +32,7 @@ import {
 import { Loader2, CheckCircle2 } from "lucide-react";
 import { apiRequest } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
+import DangerButton from "@/Components/DangerButton";
 
 const roomFormSchema = z.object({
   name: z.string().min(2, { message: "Room name must be at least 2 characters" }),
@@ -44,15 +45,22 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
   const { toast } = useToast();
   const isEditMode = roomId !== null;
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Stabilize initialData to prevent unnecessary resets
+  const stableInitialData = useMemo(() => initialData, [roomId]);
+
+  // Fetch room data for edit mode
   const { data: room, isLoading: isRoomLoading } = useQuery({
     queryKey: ["/rooms", roomId],
     queryFn: () => apiRequest("GET", `/rooms/${roomId}`),
-    enabled: isEditMode && !initialData,
-    initialData: initialData || undefined,
+    enabled: isEditMode && !stableInitialData,
+    initialData: stableInitialData || undefined,
+    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
   });
 
-  const form = useReactHookForm({
+  // Initialize react-hook-form
+  const form = useForm({
     resolver: zodResolver(roomFormSchema),
     defaultValues: {
       name: "",
@@ -62,41 +70,15 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
     },
   });
 
-  const inertiaForm = useInertiaForm({
-    name: "",
-    type: "",
-    capacity: 0,
-    building: "",
-  });
-
-  // Sync react-hook-form with inertiaForm on change
+  // Set initial form values for edit mode
   useEffect(() => {
-    const subscription = form.watch((value) => {
-      inertiaForm.setData({
-        name: value.name || "",
-        type: value.type || "",
-        capacity: value.capacity || 0,
-        building: value.building || "",
-      });
-    });
-    return () => subscription.unsubscribe();
-  }, [form, inertiaForm]);
-
-  // Handle initial data for edit mode
-  useEffect(() => {
-    if ((room || initialData) && isEditMode) {
-      const roomData = room || initialData;
+    if ((room || stableInitialData) && isEditMode) {
+      const roomData = room || stableInitialData;
       form.reset({
-        name: roomData.name,
-        type: roomData.type,
-        capacity: parseInt(roomData.capacity),
-        building: roomData.building,
-      });
-      inertiaForm.setData({
-        name: roomData.name,
-        type: roomData.type,
-        capacity: parseInt(roomData.capacity),
-        building: roomData.building,
+        name: roomData.name || "",
+        type: roomData.type || "",
+        capacity: parseInt(roomData.capacity) || 0,
+        building: roomData.building || "",
       });
     } else {
       form.reset({
@@ -105,79 +87,103 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
         capacity: 0,
         building: "",
       });
-      inertiaForm.setData({
-        name: "",
-        type: "",
-        capacity: 0,
-        building: "",
-      });
     }
-  }, [room, initialData, form, inertiaForm, isEditMode]);
+  }, [room, stableInitialData, isEditMode, form, roomId]);
 
-  // Sync backend validation errors with form
-  useEffect(() => {
-    if (inertiaForm.errors) {
-      Object.keys(inertiaForm.errors).forEach((key) => {
-        form.setError(key, { message: inertiaForm.errors[key] });
-      });
-    }
-  }, [inertiaForm.errors, form]);
-
-  const onSubmit = (data) => {
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
     console.log("Submitting form with data:", data);
 
-    if (isEditMode) {
-      inertiaForm.put(route("rooms.update", roomId), {
-        onSuccess: () => {
-          setShowSuccess(true);
-          setTimeout(() => {
-            toast({
-              title: "Room Updated",
-              description: "The room has been successfully updated.",
-              className: "bg-green-50 border-green-200 text-green-800",
-              icon: <CheckCircle2 className="h-5 w-5" />,
-            });
-            setShowSuccess(false);
-            onClose();
-            router.visit(route("rooms"), { only: ["roomsResponse"] });
-          }, 1000);
-        },
-        onError: (errors) => {
-          console.error("Form submission errors:", errors);
-          toast({
-            title: "Failed to Update Room",
-            description: Object.values(errors).join(", ") || "An error occurred.",
-            variant: "destructive",
-            className: "bg-red-50 border-red-200 text-red-800",
-          });
-        },
+    try {
+      if (isEditMode) {
+        await router.put(
+          route("rooms.update", roomId),
+          {
+            name: data.name,
+            type: data.type,
+            capacity: parseInt(data.capacity),
+            building: data.building,
+          },
+          {
+            onSuccess: () => {
+              setShowSuccess(true);
+              setTimeout(() => {
+                toast({
+                  title: "Room Updated",
+                  description: "The room has been successfully updated.",
+                  className: "bg-green-50 border-green-200 text-green-800",
+                  icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setShowSuccess(false);
+                setIsSubmitting(false);
+                onClose();
+                router.visit(route("rooms"), { only: ["roomsResponse"] });
+              }, 1000);
+            },
+            onError: (errors) => {
+              console.error("Form submission errors:", errors);
+              Object.entries(errors).forEach(([key, message]) => {
+                form.setError(key, { message });
+              });
+              toast({
+                title: "Failed to Update Room",
+                description: Object.values(errors).join(", ") || "An error occurred.",
+                variant: "destructive",
+                className: "bg-red-50 border-red-200 text-red-800",
+              });
+              setIsSubmitting(false);
+            },
+          }
+        );
+      } else {
+        await router.post(
+          route("rooms.store"),
+          {
+            name: data.name,
+            type: data.type,
+            capacity: parseInt(data.capacity),
+            building: data.building,
+          },
+          {
+            onSuccess: () => {
+              setShowSuccess(true);
+              setTimeout(() => {
+                toast({
+                  title: "Room Created",
+                  description: "The room has been successfully created.",
+                  className: "bg-green-50 border-green-200 text-green-800",
+                  icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setShowSuccess(false);
+                setIsSubmitting(false);
+                onClose();
+                router.visit(route("rooms"), { only: ["roomsResponse"] });
+              }, 1000);
+            },
+            onError: (errors) => {
+              console.error("Form submission errors:", errors);
+              Object.entries(errors).forEach(([key, message]) => {
+                form.setError(key, { message });
+              });
+              toast({
+                title: "Failed to Create Room",
+                description: Object.values(errors).join(", ") || "An error occurred.",
+                variant: "destructive",
+                className: "bg-red-50 border-red-200 text-red-800",
+              });
+              setIsSubmitting(false);
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast({
+        title: "Submission Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
       });
-    } else {
-      inertiaForm.post(route("rooms.store"), {
-        onSuccess: () => {
-          setShowSuccess(true);
-          setTimeout(() => {
-            toast({
-              title: "Room Created",
-              description: "The room has been successfully created.",
-              className: "bg-green-50 border-green-200 text-green-800",
-              icon: <CheckCircle2 className="h-5 w-5" />,
-            });
-            setShowSuccess(false);
-            onClose();
-            router.visit(route("rooms"), { only: ["roomsResponse"] });
-          }, 1000);
-        },
-        onError: (errors) => {
-          console.error("Form submission errors:", errors);
-          toast({
-            title: "Failed to Create Room",
-            description: Object.values(errors).join(", ") || "An error occurred.",
-            variant: "destructive",
-            className: "bg-red-50 border-red-200 text-red-800",
-          });
-        },
-      });
+      setIsSubmitting(false);
     }
   };
 
@@ -298,21 +304,21 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
                     />
                   </div>
                   <DialogFooter className="gap-2 sm:gap-0">
-                    <Button
+                    <DangerButton
                       type="button"
                       variant="outline"
                       onClick={onClose}
-                      disabled={inertiaForm.processing}
+                      disabled={isSubmitting}
                       className="w-full sm:w-auto border-gray-300 text-gray-700 hover:bg-gray-100 transition-all rounded-lg"
                     >
                       Cancel
-                    </Button>
+                    </DangerButton>
                     <Button
                       type="submit"
-                      disabled={inertiaForm.processing}
+                      disabled={isSubmitting}
                       className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-indigo-500 text-white hover:from-blue-600 hover:to-indigo-600 transition-all rounded-lg flex items-center justify-center"
                     >
-                      {inertiaForm.processing ? (
+                      {isSubmitting ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           {isEditMode ? "Updating..." : "Creating..."}

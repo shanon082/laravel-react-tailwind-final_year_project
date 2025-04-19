@@ -88,7 +88,7 @@ class RoomController extends Controller
 
         $room->update($validated);
 
-        return redirect()->route('rooms');
+        return back()->with('success', 'Room updated.');
     }
 
     public function destroy($id)
