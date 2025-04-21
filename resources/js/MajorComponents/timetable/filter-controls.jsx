@@ -1,17 +1,17 @@
-import { useState, useEffect } from 'react';
-import { Card, CardContent } from '../../Components/Card';
-import { Button } from '../../Components/Button';
+import { useState, useEffect } from "react";
+import { Card, CardContent } from "../../Components/Card";
+import { Button } from "../../Components/Button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '../../Components/Select';
-import { Day } from '../../types';
-import { Label } from '../../Components/Label';
-import { useQuery } from '@tanstack/react-query';
-import SecondaryButton from '@/Components/SecondaryButton';
+} from "../../Components/Select";
+import { Day } from "../../types";
+import { Label } from "../../Components/Label";
+import { useQuery } from "@tanstack/react-query";
+import SecondaryButton from "@/Components/SecondaryButton";
 
 const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   const [department, setDepartment] = useState(defaultFilters.department);
@@ -19,16 +19,16 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   const [lecturer, setLecturer] = useState(defaultFilters.lecturer);
   const [room, setRoom] = useState(defaultFilters.room);
   const [day, setDay] = useState(defaultFilters.day);
-  const [viewType, setViewType] = useState(defaultFilters.viewType || 'week');
+  const [viewType, setViewType] = useState(defaultFilters.viewType || "week");
 
   // Fetch lecturers for dropdown
   const { data: lecturers } = useQuery({
-    queryKey: ['/lecturers'],
+    queryKey: ["/lecturers"],
   });
 
   // Fetch rooms for dropdown
   const { data: rooms } = useQuery({
-    queryKey: ['/rooms'],
+    queryKey: ["/rooms"],
   });
 
   // Apply filters when the form is submitted
@@ -50,10 +50,10 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
     setLecturer(undefined);
     setRoom(undefined);
     setDay(undefined);
-    setViewType('week');
-    
+    setViewType("week");
+
     onFilterChange({
-      viewType: 'week',
+      viewType: "week",
     });
   };
 
@@ -64,14 +64,16 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
     setLecturer(defaultFilters.lecturer);
     setRoom(defaultFilters.room);
     setDay(defaultFilters.day);
-    setViewType(defaultFilters.viewType || 'week');
+    setViewType(defaultFilters.viewType || "week");
   }, [defaultFilters]);
 
   return (
     <Card className="bg-white shadow rounded-lg mb-8">
       <CardContent className="px-4 py-5 sm:p-6">
-        <h2 className="text-lg leading-6 font-medium text-gray-900 mb-4">Timetable Filters</h2>
-        
+        <h2 className="text-lg leading-6 font-medium text-gray-900 mb-4">
+          Timetable Filters
+        </h2>
+
         <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
           <div className="sm:col-span-2">
             <Label htmlFor="department">Department</Label>
@@ -85,7 +87,9 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
               <SelectContent>
                 <SelectItem value="all">All Departments</SelectItem>
                 <SelectItem value="Computer Science">Computer Science</SelectItem>
-                <SelectItem value="Business Administration">Business Administration</SelectItem>
+                <SelectItem value="Business Administration">
+                  Business Administration
+                </SelectItem>
                 <SelectItem value="Engineering">Engineering</SelectItem>
                 <SelectItem value="Medicine">Medicine</SelectItem>
               </SelectContent>
@@ -96,7 +100,9 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
             <Label htmlFor="course-level">Level</Label>
             <Select
               value={level?.toString()}
-              onValueChange={(value) => setLevel(value ? parseInt(value) : undefined)}
+              onValueChange={(value) =>
+                setLevel(value ? parseInt(value) : undefined)
+              }
             >
               <SelectTrigger id="course-level" className="mt-1">
                 <SelectValue placeholder="All Levels" />
@@ -115,7 +121,9 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
             <Label htmlFor="lecturer">Lecturer</Label>
             <Select
               value={lecturer?.toString()}
-              onValueChange={(value) => setLecturer(value ? parseInt(value) : undefined)}
+              onValueChange={(value) =>
+                setLecturer(value ? parseInt(value) : undefined)
+              }
             >
               <SelectTrigger id="lecturer" className="mt-1">
                 <SelectValue placeholder="All Lecturers" />
@@ -123,7 +131,10 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
               <SelectContent>
                 <SelectItem value="all">All Lecturers</SelectItem>
                 {lecturers?.map((lecturer) => (
-                  <SelectItem key={lecturer.id} value={lecturer.id.toString()}>
+                  <SelectItem
+                    key={lecturer.id}
+                    value={lecturer.id.toString()}
+                  >
                     {lecturer.userDetails?.fullName || `Lecturer ${lecturer.id}`}
                   </SelectItem>
                 ))}
@@ -137,7 +148,9 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
             <Label htmlFor="room">Room</Label>
             <Select
               value={room?.toString()}
-              onValueChange={(value) => setRoom(value ? parseInt(value) : undefined)}
+              onValueChange={(value) =>
+                setRoom(value ? parseInt(value) : undefined)
+              }
             >
               <SelectTrigger id="room" className="mt-1">
                 <SelectValue placeholder="All Rooms" />
@@ -185,6 +198,7 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
               <SelectContent>
                 <SelectItem value="week">Week View</SelectItem>
                 <SelectItem value="day">Day View</SelectItem>
+                <SelectItem value="month">Month View</SelectItem>
                 <SelectItem value="list">List View</SelectItem>
               </SelectContent>
             </Select>
@@ -199,12 +213,8 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
           >
             Reset
           </SecondaryButton>
-          
-          <Button
-            onClick={applyFilters}
-          >
-            Apply Filters
-          </Button>
+
+          <Button onClick={applyFilters}>Apply Filters</Button>
         </div>
       </CardContent>
     </Card>

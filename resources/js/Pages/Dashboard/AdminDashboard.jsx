@@ -1,5 +1,6 @@
 import { Head, Link } from '@inertiajs/react';
 import { useState, lazy, Suspense } from "react";
+import { apiRequest } from '@/lib/queryClient';
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardHeader, CardTitle, CardContent } from "../../Components/Card";
 import { Button } from "../../Components/Button";
@@ -39,8 +40,9 @@ export default function AdminDashboard({ auth }) {
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: ['dashboardStats'],
     queryFn: async () => {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return { courses: 50, lecturers: 20, conflicts: 5 };
+      const response = await apiRequest('GET', '/stats');
+      const data = await response.json();
+      return { courses: data.totalCourses, lecturers: data.totalLecturers, conflicts: data.totalConflicts };
     },
     // staleTime: 5 * 60 * 1000,
   });

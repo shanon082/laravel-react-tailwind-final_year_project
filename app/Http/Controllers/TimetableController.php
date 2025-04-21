@@ -21,36 +21,48 @@ class TimetableController extends Controller
     public function index(Request $request)
     {
         $query = TimetableEntry::with(['course', 'lecturer.user', 'room', 'timeSlot']);
-
+    
         // Apply filters
         if ($request->has('academic_year')) {
             $query->where('academic_year', $request->academic_year);
         }
-        
+    
         if ($request->has('semester')) {
             $query->where('semester', $request->semester);
         }
-        
+    
         if ($request->has('course_id')) {
             $query->where('course_id', $request->course_id);
         }
-        
+    
         if ($request->has('lecturer_id')) {
             $query->where('lecturer_id', $request->lecturer_id);
         }
-        
+    
         if ($request->has('room_id')) {
             $query->where('room_id', $request->room_id);
         }
-        
+    
         if ($request->has('day')) {
             $query->where('day', $request->day);
         }
-
+    
+        if ($request->has('department')) {
+            $query->whereHas('course', function ($q) use ($request) {
+                $q->where('department', $request->department);
+            });
+        }
+    
+        if ($request->has('level')) {
+            $query->whereHas('course', function ($q) use ($request) {
+                $q->where('level', $request->level);
+            });
+        }
+    
         $entries = $query->get();
-        
-        if($request->header('X-Inertia')){
-            return Inertia::render('Timetable',[
+    
+        if ($request->header('X-Inertia')) {
+            return Inertia::render('Timetable', [
                 'auth' => auth()->user(),
                 'filters' => [
                     'academic_year' => $request->academic_year ?? '',
@@ -58,14 +70,13 @@ class TimetableController extends Controller
                     'course_id' => $request->course_id ?? '',
                     'lecturer_id' => $request->lecturer_id ?? '',
                     'room_id' => $request->room_id ?? '',
-                    'day' => $request->day ?? ''
+                    'day' => $request->day ?? '',
+                    'department' => $request->department ?? '',
+                    'level' => $request->level ?? '',
                 ],
             ]);
         }
     
-        //return Inertia::render('Timetable');
-
-        
         return response()->json($entries);
     }
 

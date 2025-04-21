@@ -13,17 +13,31 @@ import { Head } from "@inertiajs/react";
 const Timetable = ({auth}) => {
   const { user } = useAuth();
   const [location] = useLocation();
-  const [filters, setFilters] = useState<Filter>({
-    viewType: 'week'
+  const [filters, setFilters] = useState({
+    viewType: "week",
+    courseId: null,
+    roomId: null,
+    lecturerId: null,
+    day: null,
+    department: null,
+    level: null,
   });
 
   // Parse query parameters
-  const params = new URLSearchParams(location.split("?")[1]);
+  const params = new URLSearchParams((location && typeof location === 'string' && location.includes("?") && location.split("?")[1]) || "");
   const showConflicts = params.get("showConflicts") === "true";
   const showGenerator = params.get("generate") === "true";
 
   const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
+    setFilters({
+      viewType: newFilters.viewType || "week",
+      courseId: newFilters.courseId,
+      roomId: newFilters.room,
+      lecturerId: newFilters.lecturer,
+      day: newFilters.day !== "all" ? newFilters.day : null,
+      department: newFilters.department !== "all" ? newFilters.department : null,
+      level: newFilters.level !== "all" ? newFilters.level : null,
+    });
   };
 
   const academicYear = "2023-2024";
@@ -64,4 +78,5 @@ const Timetable = ({auth}) => {
   );
 };
 
-export default Timetable;
+export default Timetable
+

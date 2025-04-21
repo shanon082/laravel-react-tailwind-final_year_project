@@ -4,17 +4,16 @@ import { AlertCircle } from "lucide-react";
 const TimetableCell = ({ entry, isLunchBreak = false }) => {
   if (isLunchBreak) {
     return (
-      <div className="timetable-cell p-2 border-b border-gray-200 bg-gray-50 min-h-[100px]">
+      <div className="timetable-cell p-2 border-b border-r border-gray-200 bg-gray-50 min-h-[80px]">
         <div className="text-center text-xs text-gray-500 italic">Lunch Break</div>
       </div>
     );
   }
 
   if (!entry) {
-    return <div className="timetable-cell p-2 border-b border-gray-200 bg-white min-h-[100px]"></div>;
+    return <div className="timetable-cell p-2 border-b border-r border-gray-200 bg-white min-h-[80px]"></div>;
   }
 
-  // Get color based on course id or color code
   const colorMap = {
     1: 'course-1',
     2: 'course-2',
@@ -31,7 +30,7 @@ const TimetableCell = ({ entry, isLunchBreak = false }) => {
   const borderClass = `border-l-4 border-${colorClass}`;
 
   return (
-    <div className="timetable-cell p-2 border-b border-gray-200 bg-white min-h-[100px]">
+    <div className="timetable-cell p-2 border-b border-r border-gray-200 bg-white min-h-[80px]">
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -56,7 +55,7 @@ const TimetableCell = ({ entry, isLunchBreak = false }) => {
               )}
             </div>
           </TooltipTrigger>
-          <TooltipContent>
+          <TooltipContent className="max-w-[250px] break-words">
             <div className="space-y-1">
               <p className="font-bold">{entry.course.name} ({entry.course.code})</p>
               <p>Room: {entry.room.name}</p>

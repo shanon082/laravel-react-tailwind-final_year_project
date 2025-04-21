@@ -71,9 +71,12 @@ const FeedbackDialog = () => {
     setError("");
     
     try {
-      // Simulate API call (replace with actual endpoint later)
-      // await apiRequest('POST', '/api/feedback', feedback);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await apiRequest('POST', '/feedback', {
+        type: feedback.type,
+        message: feedback.message,
+        course_id: null, 
+      });
+      
 
       setShowSuccess(true);
       setTimeout(() => {

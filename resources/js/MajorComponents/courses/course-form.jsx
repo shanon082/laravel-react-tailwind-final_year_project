@@ -99,13 +99,13 @@ const CourseForm = ({ courseId, onClose }) => {
           {
             onSuccess: () => {
               setShowSuccess(true);
+              toast({
+                title: isEditMode ? "Course Updated" : "Course Created",
+                description: `The course has been successfully`,// ${isEditMode ? "updated" : "created"}.`,
+                className: "bg-green-50 border-green-200 text-green-800",
+                icon: <CheckCircle2 className="h-5 w-5" />,
+              });
               setTimeout(() => {
-                toast({
-                  title: "Course Updated",
-                  description: "The course has been successfully updated.",
-                  className: "bg-green-50 border-green-200 text-green-800",
-                  icon: <CheckCircle2 className="h-5 w-5" />,
-                });
                 setShowSuccess(false);
                 setIsSubmitting(false);
                 onClose();

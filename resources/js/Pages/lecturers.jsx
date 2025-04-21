@@ -11,7 +11,7 @@ import {
 } from "../components/dialog";
 import { Label } from "../components/label";
 import { Input } from "../components/input";
-import { Plus, UserPlus, Loader2 } from "lucide-react";
+import { Plus, UserPlus, Loader2, CheckCircle } from "lucide-react";
 import Layout from "../MajorComponents/layout/layout";
 import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types/index";
@@ -143,7 +143,7 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
                   title: "Lecturer Added",
                   description: "The Lecturer has been successfully Added.",
                   className: "bg-green-50 border-green-200 text-green-800",
-                  icon: <CheckCircle2 className="h-5 w-5" />,
+                  icon: <CheckCircle className="h-5 w-5" />,
                 });
                 setShowSuccess(false);
                 setIsSubmitting(false);

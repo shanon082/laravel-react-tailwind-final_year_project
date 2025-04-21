@@ -10,3 +10,60 @@
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
   }
+
+  /* Assuming these styles are in a global stylesheet or a CSS module */
+.timetable-grid {
+  display: grid;
+  /* Dynamically set columns: one for day labels, then one per time slot */
+  grid-template-columns: minmax(100px, 150px) repeat(auto-fit, minmax(150px, 1fr));
+  width: 100%;
+}
+
+.timetable-cell {
+  min-height: 80px; /* Reduced from 100px for tighter rows */
+  min-width: 150px; /* Ensure cells are wide enough for content */
+  padding: 8px; /* Consistent padding */
+  border-right: 1px solid #e5e7eb; /* Vertical lines between time slots */
+  border-bottom: 1px solid #e5e7eb; /* Horizontal lines between days */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  box-sizing: border-box;
+}
+
+/* Style for day and time slot headers */
+.timetable-cell.bg-gray-50 {
+  font-weight: 500;
+  color: #6b7280;
+  background-color: #f9fafb;
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+/* Style for lunch break cells */
+.timetable-cell.bg-gray-50 .text-xs {
+  font-style: italic;
+  color: #6b7280;
+}
+
+/* Style for entry cells */
+.timetable-cell .bg-course-1,
+.timetable-cell .bg-course-2,
+/* ... other course colors */
+.timetable-cell .bg-course-8 {
+  border-radius: 6px;
+  padding: 8px;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-start;
+}
+
+/* Ensure tooltips fit within cells */
+.timetable-cell .tooltip-content {
+  max-width: 300px;
+  word-wrap: break-word;
+}
