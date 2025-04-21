@@ -9,6 +9,7 @@ import {
   ChevronRight,
   Menu,
   X,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "../../hooks/use-auth";
 import { UserRole } from "../../types/index";
@@ -78,6 +79,13 @@ const Sidebar = () => {
       icon: <Home className="h-5 w-5" />,
       roles: [UserRole.ADMIN, UserRole.LECTURER],
       tooltip: "Manage rooms",
+    },
+    {
+      name: "Feedback",
+      path: "/feedback",
+      icon: <MessageCircle className="h-5 w-5" />,
+      roles: [UserRole.ADMIN],
+      tooltip: "Messages",
     },
   ];
 

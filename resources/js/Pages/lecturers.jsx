@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "../components/button";
 import {
   Dialog,
@@ -17,9 +17,10 @@ import { useAuth } from "../hooks/use-auth";
 import { UserRole } from "../types/index";
 import { useToast } from "../hooks/use-toast";
 import { apiRequest, queryClient } from "../lib/queryClient";
-import { Head } from "@inertiajs/react";
+import { Head, router } from "@inertiajs/react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import LecturerList from "../MajorComponents/lecturers/lecturer-list";
 import AvailabilityTable from "../MajorComponents/lecturers/availability-table";
@@ -27,74 +28,172 @@ import DangerButton from "@/Components/DangerButton";
 
 // Validation schema for AddLecturerDialog
 const lecturerFormSchema = z.object({
+  username: z.string().min(3, { message: "User name must be at least 3 characters" }),
   fullName: z.string().min(3, { message: "Full name must be at least 3 characters" }),
   email: z.string().email({ message: "Invalid email address" }),
   department: z.string().min(1, { message: "Department is required" }),
-  specialization: z.string().min(1, { message: "Specialization is required" }),
-  contactNumber: z
+  title: z.string().min(1, { message: "title is required" }),
+  contact: z
     .string()
     .regex(/^\+?\d{9,15}$/, { message: "Invalid phone number (e.g., +256123456789)" }),
 });
 
-const AddLecturerDialog = ({ open, onOpenChange }) => {
+const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
   const { toast } = useToast();
+  const isEditMode = lecturerId !== null;
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch lecturer data for edit mode
+  const { data: lecturer, isLoading: isLecturerLoading } = useQuery({
+    queryKey: ["/lecturers", lecturerId],
+    queryFn: () => apiRequest("GET", `/lecturers/${lecturerId}`),
+    enabled: isEditMode,
+  });
+
+  // Initialize react-hook-form
+  const form = useForm({
+    resolver: zodResolver(lecturerFormSchema),
+    defaultValues: {
+      username: "",
+      fullName: "",
+      email: "",
+      department: "",
+      title: "",
+      contact: "",
+    },
+  });
+
+  useEffect(() => {
+    if (lecturer && isEditMode) {
+      form.reset({
+        username: lecturer.username,
+        fullName: lecturer.fullName,
+        email: lecturer.email,
+        title: lecturer.title,
+        department: lecturer.department,        
+        contact: lecturer.contact,
+      });
+    }
+  }, [lecturer, form, isEditMode]);
+
+  const onSubmit = async (data) => {
+    setIsSubmitting(true);
+    console.log("Submitting form with data:", data);
+
+    try {
+      if (isEditMode) {
+        await router.put(
+          route("lecturers.update", lecturerId),
+          {
+            username: data.username,
+            fullName: data.fullName,
+            email: data.email,
+            department: data.department,
+            title: data.title,
+            contact: data.contact,
+          },
+          {
+            onSuccess: () => {
+              setShowSuccess(true);
+              setTimeout(() => {
+                toast({
+                  title: "Lecturer Updated",
+                  description: "The lecturer has been successfully updated.",
+                  className: "bg-green-50 border-green-200 text-green-800",
+                  icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setShowSuccess(false);
+                setIsSubmitting(false);
+                onOpenChange(false);
+                router.visit(route("lecturers"), { only: ["lecturersResponse"] });
+              }, 1000);
+            },
+            onError: (errors) => {
+              console.error("Form submission errors:", errors);
+              Object.entries(errors).forEach(([key, message]) => {
+                form.setError(key, { message });
+              });
+              toast({
+                title: "Failed to Update Lecturer",
+                description: Object.values(errors).join(", ") || "An error occurred.",
+                variant: "destructive",
+                className: "bg-red-50 border-red-200 text-red-800",
+              });
+              setIsSubmitting(false);
+            },
+          }
+        );
+      } else {
+        await router.post(
+          route("lecturers.store"),
+          {
+            username: data.username,
+            fullName: data.fullName,
+            email: data.email,
+            department: data.department,
+            title: data.title,
+            contact: data.contact,
+          },
+          {
+            onSuccess: () => {
+              setShowSuccess(true);
+              setTimeout(() => {
+                toast({
+                  title: "Lecturer Added",
+                  description: "The Lecturer has been successfully Added.",
+                  className: "bg-green-50 border-green-200 text-green-800",
+                  icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setShowSuccess(false);
+                setIsSubmitting(false);
+                onOpenChange(false);
+                router.visit(route("lecturers"), { only: ["lecturersResponse"] });
+              }, 1000);
+            },
+            onError: (errors) => {
+              console.error("Form submission errors:", errors);
+              Object.entries(errors).forEach(([key, message]) => {
+                form.setError(key, { message });
+              });
+              toast({
+                title: "Failed to Add Lecturer",
+                description: Object.values(errors).join(", ") || "An error occurred.",
+                variant: "destructive",
+                className: "bg-red-50 border-red-200 text-red-800",
+              });
+              setIsSubmitting(false);
+            },
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Submission error:", error);
+      toast({
+        title: "Submission Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      setIsSubmitting(false);
+    }
+  };
+
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
   } = useForm({
     resolver: zodResolver(lecturerFormSchema),
     defaultValues: {
+      username: "",
       fullName: "",
       email: "",
       department: "",
-      specialization: "",
-      contactNumber: "",
+      title: "",
+      contact: "",
     },
   });
-
-  const onSubmit = async (data) => {
-    console.log("Form submitted with data:", data);
-    try {
-      console.log("Sending user registration request...");
-      const userResponse = await apiRequest("POST", "/register", {
-        username: data.email.split("@")[0],
-        password: `${data.fullName.split(" ")[0].toLowerCase()}123`,
-        fullName: data.fullName,
-        email: data.email,
-        role: UserRole.LECTURER,
-      });
-      const userData = await userResponse;
-      console.log("User registered:", userData);
-
-      console.log("Sending lecturer creation request...");
-      const lecturerResponse = await apiRequest("POST", "/lecturers", {
-        userId: userData.id,
-        department: data.department,
-        specialization: data.specialization,
-        contact_number: data.contactNumber,
-      });
-      await lecturerResponse;
-      console.log("Lecturer created");
-
-      toast({
-        title: "Lecturer added",
-        description: `${data.fullName} has been added successfully`,
-      });
-
-      reset();
-      queryClient.invalidateQueries(["/api/lecturers"]);
-      onOpenChange(false);
-    } catch (error) {
-      console.error("Submission error:", error);
-      toast({
-        title: "Error adding lecturer",
-        description: error.message || "Could not add lecturer. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   return (
     <DialogContent
@@ -111,6 +210,12 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
         <div className="grid gap-4 py-4">
           {[
             {
+              id: "username",
+              label: "User Name",
+              type: "text",
+              placeholder: "e.g., John",
+            },
+            {
               id: "fullName",
               label: "Full Name",
               type: "text",
@@ -120,7 +225,7 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
               id: "email",
               label: "Email",
               type: "email",
-              placeholder: "e.g., john.smith@university.edu",
+              placeholder: "e.g., john.smith@sun.ac.ug",
             },
             {
               id: "department",
@@ -129,13 +234,13 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
               placeholder: "e.g., Computer Science",
             },
             {
-              id: "specialization",
-              label: "Specialization",
+              id: "title",
+              label: "title",
               type: "text",
-              placeholder: "e.g., Artificial Intelligence",
+              placeholder: "e.g., Prof or Lecturer",
             },
             {
-              id: "contactNumber",
+              id: "contact",
               label: "Contact",
               type: "tel",
               placeholder: "e.g., +256 123 456 789",
@@ -153,9 +258,7 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
                   id={id}
                   type={type}
                   placeholder={placeholder}
-                  className={`h-10 border-gray-300 focus:ring-blue-500 focus:border-blue-500 ${
-                    errors[id] ? "border-red-500" : ""
-                  }`}
+                  className={`h-10 border-gray-300 focus:ring-blue-500 focus:border-blue-500 ${errors[id] ? "border-red-500" : ""}`}
                   {...register(id)}
                   aria-invalid={!!errors[id]}
                   aria-describedby={errors[id] ? `${id}-error` : undefined}
@@ -199,7 +302,7 @@ const AddLecturerDialog = ({ open, onOpenChange }) => {
   );
 };
 
-const Lecturers = ({ auth }) => {
+const Lecturers = ({ auth, lecturerResponse, filters }) => {
   const { user } = useAuth();
   const [selectedLecturerId, setSelectedLecturerId] = useState(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
@@ -233,7 +336,7 @@ const Lecturers = ({ auth }) => {
                   Add Lecturer
                 </Button>
               </DialogTrigger>
-              <AddLecturerDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} />
+              <AddLecturerDialog open={addDialogOpen} onOpenChange={setAddDialogOpen} lecturerId={null} />
             </Dialog>
           )}
         </div>
@@ -242,9 +345,7 @@ const Lecturers = ({ auth }) => {
         <div className="block lg:hidden mb-6">
           <div className="flex border-b border-gray-200">
             <button
-              className={`px-4 py-2 text-sm font-medium ${
-                !selectedLecturerId ? "border-b-2 border-primary bg-blue-100 text-primary" : "text-gray-500 hover:text-gray-700"
-              }`}
+              className={`px-4 py-2 text-sm font-medium ${!selectedLecturerId ? "border-b-2 border-primary bg-blue-100 text-primary" : "text-gray-500 hover:text-gray-700"}`}
               onClick={() => setSelectedLecturerId(null)}
             >
               All Lecturers

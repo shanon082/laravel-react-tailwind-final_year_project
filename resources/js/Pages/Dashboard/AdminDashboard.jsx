@@ -42,7 +42,7 @@ export default function AdminDashboard({ auth }) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       return { courses: 50, lecturers: 20, conflicts: 5 };
     },
-    staleTime: 5 * 60 * 1000,
+    // staleTime: 5 * 60 * 1000,
   });
 
   const handleFilterChange = (newFilters) => {
@@ -160,13 +160,13 @@ export default function AdminDashboard({ auth }) {
                         <ConflictList limit={3} />
                         <div className="mt-4 text-center">
                           <Link href="/timetable?conflicts=true">
-                            <Button
+                            <SecondaryButton
                               variant="outline"
                               size="sm"
                               className="hover:bg-gray-100"
                             >
                               View All Conflicts
-                            </Button>
+                            </SecondaryButton>
                           </Link>
                         </div>
                       </CardContent>

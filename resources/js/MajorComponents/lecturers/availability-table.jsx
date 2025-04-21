@@ -25,6 +25,7 @@ import { queryClient } from "../../lib/queryClient";
 import { useAuth } from "../../hooks/use-auth";
 import { UserRole } from "../../types";
 import { useState } from "react";
+import { router } from "@inertiajs/react";
 
 const AvailabilityTable = ({ lecturerId }) => {
   const { toast } = useToast();
@@ -37,27 +38,32 @@ const AvailabilityTable = ({ lecturerId }) => {
   const canEdit =
     user?.role === UserRole.ADMIN || (user?.role === UserRole.LECTURER && user?.id === lecturerId);
 
-  const { data: lecturer, isLoading: isLecturerLoading } = useQuery({
-    queryKey: ["/api/lecturers", lecturerId],
+  const { data: lecturerResponse, isLoading: isLecturerLoading } = useQuery({
+    queryKey: ["/lecturers", lecturerId],
+    queryFn: () => apiRequest("GET", `/lecturers/${lecturerId}`).then((res) => res.json()),
     staleTime: 5 * 60 * 1000,
   });
 
-  const { data: availabilities, isLoading: isAvailabilityLoading } = useQuery({
-    queryKey: ["/api/lecturers", lecturerId, "availability"],
+  const { data: availabilitiesResponse, isLoading: isAvailabilityLoading } = useQuery({
+    queryKey: ["/lecturers", lecturerId, "availability"],
+    queryFn: () => apiRequest("GET", `/lecturers/${lecturerId}/availability`).then((res) => res.json()),
     staleTime: 5 * 60 * 1000,
   });
+
+  const lecturer = lecturerResponse || {};
+  const availabilities = availabilitiesResponse || [];
 
   const addAvailabilityMutation = useMutation({
     mutationFn: async (availabilityData) => {
       const response = await apiRequest(
         "POST",
-        `/api/lecturers/${lecturerId}/availability`,
+        `/lecturers/${lecturerId}/availability`,
         availabilityData
       );
       return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lecturers", lecturerId, "availability"] });
+      queryClient.invalidateQueries({ queryKey: ["/lecturers", lecturerId, "availability"] });
       setIsAddingAvailability(false);
       toast({
         title: "Availability added",
@@ -67,7 +73,7 @@ const AvailabilityTable = ({ lecturerId }) => {
     onError: (error) => {
       toast({
         title: "Failed to add availability",
-        description: error.message,
+        description: error.message || "An error occurred while adding availability.",
         variant: "destructive",
       });
     },
@@ -75,10 +81,10 @@ const AvailabilityTable = ({ lecturerId }) => {
 
   const deleteAvailabilityMutation = useMutation({
     mutationFn: async (availabilityId) => {
-      await apiRequest("DELETE", `/api/lecturers/availability/${availabilityId}`);
+      await apiRequest("DELETE", `/lecturers/availability/${availabilityId}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/lecturers", lecturerId, "availability"] });
+      queryClient.invalidateQueries({ queryKey: ["/lecturers", lecturerId, "availability"] });
       toast({
         title: "Availability removed",
         description: "The availability time has been successfully removed.",
@@ -87,7 +93,7 @@ const AvailabilityTable = ({ lecturerId }) => {
     onError: (error) => {
       toast({
         title: "Failed to remove availability",
-        description: error.message,
+        description: error.message || "An error occurred while removing availability.",
         variant: "destructive",
       });
     },
@@ -95,33 +101,35 @@ const AvailabilityTable = ({ lecturerId }) => {
 
   const handleAddAvailability = () => {
     if (!newDay || !newStartTime || !newEndTime) {
-      toast({
-        title: "Invalid input",
-        description: "Please select a day and provide valid time range.",
-        variant: "destructive",
-      });
-      return;
+        toast({
+            title: "Invalid input",
+            description: "Please select a day and provide valid time range.",
+            variant: "destructive",
+        });
+        return;
     }
 
     if (newStartTime >= newEndTime) {
-      toast({
-        title: "Invalid time range",
-        description: "End time must be after start time.",
-        variant: "destructive",
-      });
-      return;
+        toast({
+            title: "Invalid time range",
+            description: "End time must be after start time.",
+            variant: "destructive",
+        });
+        return;
     }
 
-    const formattedStartTime = `${newStartTime}:00`;
-    const formattedEndTime = `${newEndTime}:00`;
+    // Format time as HH:MM without seconds
+    const formatTime = (time) => {
+        if (time.length === 5) return time; // Already in HH:MM format
+        return time.substring(0, 5); // Cut seconds if present
+    };
 
     addAvailabilityMutation.mutate({
-      lecturerId,
-      day: newDay,
-      startTime: formattedStartTime,
-      endTime: formattedEndTime,
+        day: newDay,
+        start_time: formatTime(newStartTime),
+        end_time: formatTime(newEndTime),
     });
-  };
+};
 
   const handleDeleteAvailability = (availabilityId) => {
     if (window.confirm("Are you sure you want to delete this availability slot?")) {
@@ -129,7 +137,7 @@ const AvailabilityTable = ({ lecturerId }) => {
     }
   };
 
-  const availabilitiesByDay = availabilities?.reduce((acc, availability) => {
+  const availabilitiesByDay = availabilities.reduce((acc, availability) => {
     if (!acc[availability.day]) {
       acc[availability.day] = [];
     }
@@ -137,7 +145,11 @@ const AvailabilityTable = ({ lecturerId }) => {
     return acc;
   }, {}) || {};
 
-  const formatTime = (time) => time.substring(0, 5);
+  const formatTime = (time) => {
+    // Handle both H:i and H:i:s formats
+    const timeStr = time instanceof Date ? time.toTimeString().slice(0, 5) : time;
+    return timeStr.length === 5 ? timeStr : timeStr.substring(0, 5);
+  };
 
   const allDays = ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY"];
 
@@ -269,14 +281,14 @@ const AvailabilityTable = ({ lecturerId }) => {
                 <td className="px-6 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center text-white font-semibold">
-                      {lecturer?.userDetails?.fullName?.charAt(0) || "L"}
+                      {lecturer?.fullName?.charAt(0) || "L"}
                     </div>
                     <div className="ml-4">
                       <div className="text-sm font-medium text-gray-900">
-                        {lecturer?.title} {lecturer?.userDetails?.fullName || `Lecturer ${lecturerId}`}
+                        {lecturer?.title} {lecturer?.fullName || `Lecturer ${lecturerId}`}
                       </div>
                       <div className="text-sm text-gray-500">
-                        {lecturer?.userDetails?.department || lecturer?.department}
+                        {lecturer?.department}
                       </div>
                     </div>
                   </div>
@@ -289,9 +301,9 @@ const AvailabilityTable = ({ lecturerId }) => {
                           <div key={availability.id} className="flex items-center">
                             <span
                               className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800"
-                              title={`Available from ${formatTime(availability.startTime)} to ${formatTime(availability.endTime)}`}
+                              title={`Available from ${formatTime(availability.start_time)} to ${formatTime(availability.end_time)}`}
                             >
-                              {formatTime(availability.startTime)} - {formatTime(availability.endTime)}
+                              {formatTime(availability.start_time)} - {formatTime(availability.end_time)}
                             </span>
                             {canEdit && (
                               <Button

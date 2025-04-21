@@ -18,7 +18,7 @@ const Layout = ({ children }) => {
 
         {/* Main Content: Scrollable */}
         <main
-          className="flex-1 w-full mx-auto sm:px-6 lg:px-8 md:ml-80" // Changed md:ml-20 to md:ml-80 to match sidebar width
+          className="flex-1 w-full mx-auto sm:px-6 lg:px-8 md:ml-80"
           style={{
             marginTop: "64px", 
             minHeight: "calc(100vh - 128px)",

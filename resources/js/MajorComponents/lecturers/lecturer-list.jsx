@@ -6,19 +6,23 @@ import { ScrollArea } from "../../Components/scroll-area";
 import { Search, X } from "lucide-react";
 import { Input } from "../../Components/input";
 import { useState } from "react";
+import { apiRequest } from "../../lib/queryClient";
 
 const LecturerList = ({ onSelectLecturer, selectedLecturerId }) => {
   const [searchQuery, setSearchQuery] = useState("");
 
-  const { data: lecturers, isLoading } = useQuery({
-    queryKey: ["/api/lecturers"],
-    staleTime: 5 * 60 * 1000, // Cache for 5 minutes
+  const { data: lecturersResponse, isLoading } = useQuery({
+    queryKey: ["/lecturers"],
+    queryFn: () => apiRequest("GET", "/lecturers").then((res) => res.json()),
   });
 
-  const filteredLecturers = lecturers?.filter((lecturer) => {
+  // Extract the data array from the response, default to empty array if undefined
+  const lecturers = lecturersResponse?.data || [];
+
+  const filteredLecturers = lecturers.filter((lecturer) => {
     if (!searchQuery) return true;
-    const fullName = lecturer.userDetails?.fullName || "";
-    const department = lecturer.userDetails?.department || lecturer.department || "";
+    const fullName = lecturer.fullName || "";
+    const department = lecturer.department || "";
     return (
       fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       department.toLowerCase().includes(searchQuery.toLowerCase())
@@ -97,20 +101,20 @@ const LecturerList = ({ onSelectLecturer, selectedLecturerId }) => {
                   }`}
                   onClick={() => onSelectLecturer(lecturer.id)}
                   aria-selected={selectedLecturerId === lecturer.id}
-                  title={`View availability for ${lecturer.userDetails?.fullName || `Lecturer ${lecturer.id}`}`}
+                  title={`View availability for ${lecturer.fullName || `Lecturer ${lecturer.id}`}`}
                 >
                   <div className="flex items-center">
                     <Avatar className="h-10 w-10 mr-3 border border-gray-200">
                       <AvatarFallback className="bg-gradient-to-r from-blue-400 to-blue-600 text-white">
-                        {lecturer.userDetails?.fullName?.charAt(0) || "L"}
+                        {lecturer.fullName?.charAt(0) || "L"}
                       </AvatarFallback>
                     </Avatar>
                     <div className="text-left">
-                      <div className="font-medium">
-                        {lecturer.title} {lecturer.userDetails?.fullName || `Lecturer ${lecturer.id}`}
+                      <div className="font-medium text-blue-500">
+                        {lecturer.title} {lecturer.fullName || `Lecturer ${lecturer.id}`}
                       </div>
                       <div className="text-xs text-gray-500">
-                        {lecturer.userDetails?.department || lecturer.department}
+                        {lecturer.department}
                       </div>
                     </div>
                   </div>

@@ -10,6 +10,7 @@ import TimetableGrid from "../../MajorComponents/timetable/timetable-grid";
 import { useToast } from "../../hooks/use-toast";
 import { useState } from 'react';
 import Layout from '@/MajorComponents/layout/layout';
+import SecondaryButton from '@/Components/SecondaryButton';
 
 export default function StudentDashboard({ auth }) {
 
@@ -115,10 +116,10 @@ export default function StudentDashboard({ auth }) {
             </div>
           </div>
           <div className="mt-4 flex md:mt-0 md:ml-4 space-x-3">
-            <Button variant="outline" onClick={handleExport}>
+            <SecondaryButton variant="outline" onClick={handleExport}>
               <Download className="-ml-1 mr-2 h-5 w-5" />
               Export Timetable
-            </Button>
+            </SecondaryButton>
           </div>
         </div>
 

@@ -7,44 +7,20 @@ async function throwIfResNotOk(res) {
   }
 }
 
-export async function apiRequest(method, path, body = null) {
-  if (method !== "GET") {
-    await fetch("http://127.0.0.1:8000/sanctum/csrf-cookie", {
-      credentials: "include",
-    });
-  }
-
-  const cleanPath = path.startsWith("/api") ? path.replace("/api", "") : path;
-  const url = `/api${cleanPath}`;
-  console.log("Request URL:", url);
-
-  const options = {
+export async function apiRequest(method, url, data) {
+  const res = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
       "Accept": "application/json",
-      "X-XSRF-TOKEN": document.cookie.match(/XSRF-TOKEN=([^;]+)/)?.[1] || "",
-      ...(localStorage.getItem("token") && path !== "/courses"
-        ? { Authorization: `Bearer ${localStorage.getItem("token")}` }
-        : {}),
+      "X-CSRF-TOKEN": csrfToken, // Add CSRF token
     },
-    credentials: "include",
-  };
+    body: data ? JSON.stringify(data) : undefined,
+    credentials: "include", // Important for sessions
+  });
 
-  if (body) {
-    options.body = JSON.stringify(body);
-  }
-
-  const response = await fetch(url, options);
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error("Unauthorized");
-    }
-    await throwIfResNotOk(response);
-  }
-
-  return response.json();
+  await throwIfResNotOk(res);
+  return res;
 }
 
 export const getQueryFn = ({ on401: unauthorizedBehavior }) => {

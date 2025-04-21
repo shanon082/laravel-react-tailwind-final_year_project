@@ -18,9 +18,9 @@ const courseFormSchema = z.object({
   code: z.string().min(3, { message: "Course code must be at least 3 characters" }),
   name: z.string().min(3, { message: "Course name must be at least 3 characters" }),
   department: z.string().min(1, { message: "Department is required" }),
-  isElective: z.boolean().default(false),
-  colorCode: z.string().regex(/^#[0-9A-F]{6}$/i, { message: "Invalid hex color code" }).default("#3B82F6"),
-  yearLevel: z.number().int().min(1).max(6),
+  is_elective: z.boolean().default(false),
+  color_code: z.string().regex(/^#[0-9A-F]{6}$/i, { message: "Invalid hex color code" }).default("#3B82F6"),
+  year_level: z.number().int().min(1).max(6),
 });
 
 const CourseForm = ({ courseId, onClose }) => {
@@ -47,9 +47,9 @@ const CourseForm = ({ courseId, onClose }) => {
       code: "",
       name: "",
       department: "",
-      isElective: false,
-      colorCode: "#3B82F6",
-      yearLevel: 1,
+      is_elective: false,
+      color_code: "#3B82F6",
+      year_level: 1,
     },
   });
 
@@ -59,9 +59,9 @@ const CourseForm = ({ courseId, onClose }) => {
         code: course.code,
         name: course.name,
         department: course.department,
-        isElective: course.isElective,
-        colorCode: course.colorCode,
-        yearLevel: course.yearLevel,
+        is_elective: course.is_elective,
+        color_code: course.color_code,
+        year_level: course.year_level,
       });
     }
   }, [course, form, isEditMode]);
@@ -71,12 +71,12 @@ const CourseForm = ({ courseId, onClose }) => {
     console.log("Submitting form with data:", data);
 
     // Validate colorCode and yearLevel
-    if (!data.colorCode.match(/^#[0-9A-F]{6}$/i)) {
+    if (!data.color_code.match(/^#[0-9A-F]{6}$/i)) {
       form.setError("color_code", { message: "Invalid color code" });
       setIsSubmitting(false);
       return;
     }
-    if (isNaN(data.yearLevel) || data.yearLevel < 1 || data.yearLevel > 6) {
+    if (isNaN(data.year_level) || data.year_level < 1 || data.year_level > 6) {
       form.setError("year_level", { message: "Year level must be between 1 and 6" });
       setIsSubmitting(false);
       return;
@@ -86,12 +86,10 @@ const CourseForm = ({ courseId, onClose }) => {
       code: data.code,
       name: data.name,
       department: data.department,
-      is_elective: data.isElective,
-      color_code: data.colorCode.toUpperCase(),
-      year_level: Number(data.yearLevel),
+      is_elective: data.is_elective,
+      color_code: data.color_code.toUpperCase(),
+      year_level: Number(data.year_level),
     };
-
-    console.log("Payload being sent:", JSON.stringify(payload, null, 2));
 
     try {
       if (isEditMode) {
@@ -117,9 +115,9 @@ const CourseForm = ({ courseId, onClose }) => {
             onError: (errors) => {
               console.error("Form submission errors:", errors);
               const fieldMap = {
-                color_code: "colorCode",
-                year_level: "yearLevel",
-                is_elective: "isElective",
+                color_code: "color_code",
+                year_level: "year_level",
+                is_elective: "is_elective",
                 code: "code",
                 name: "name",
                 department: "department",
@@ -168,9 +166,9 @@ const CourseForm = ({ courseId, onClose }) => {
             onError: (errors) => {
               console.error("Form submission errors:", errors);
               const fieldMap = {
-                color_code: "colorCode",
-                year_level: "yearLevel",
-                is_elective: "isElective",
+                color_code: "color_code",
+                year_level: "year_level",
+                is_elective: "is_elective",
                 code: "code",
                 name: "name",
                 department: "department",
@@ -286,7 +284,7 @@ const CourseForm = ({ courseId, onClose }) => {
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <FormField
                 control={form.control}
-                name="yearLevel"
+                name="year_level"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Year Level</FormLabel>
@@ -297,17 +295,17 @@ const CourseForm = ({ courseId, onClose }) => {
                         max={6}
                         {...field}
                         onChange={(e) => field.onChange(parseInt(e.target.value, 10))}
-                        aria-invalid={!!form.formState.errors.yearLevel}
-                        aria-describedby={form.formState.errors.yearLevel ? "yearLevel-error" : undefined}
+                        aria-invalid={!!form.formState.errors.year_level}
+                        aria-describedby={form.formState.errors.year_level ? "year_level-error" : undefined}
                       />
                     </FormControl>
-                    <FormMessage id="yearLevel-error" className="text-red-600 font-medium" />
+                    <FormMessage id="year_level-error" className="text-red-600 font-medium" />
                   </FormItem>
                 )}
               />
               <FormField
                 control={form.control}
-                name="colorCode"
+                name="color_code"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Color Code</FormLabel>
@@ -322,8 +320,8 @@ const CourseForm = ({ courseId, onClose }) => {
                         value={field.value}
                         readOnly
                         placeholder="#3B82F6"
-                        aria-invalid={!!form.formState.errors.colorCode}
-                        aria-describedby={form.formState.errors.colorCode ? "colorCode-error" : undefined}
+                        aria-invalid={!!form.formState.errors.color_code}
+                        aria-describedby={form.formState.errors.color_code ? "color_code-error" : undefined}
                       />
                       <div
                         className="w-6 h-6 rounded-full border border-gray-300"
@@ -331,14 +329,14 @@ const CourseForm = ({ courseId, onClose }) => {
                       ></div>
                     </div>
                     <FormDescription>Choose a color for this course in the timetable</FormDescription>
-                    <FormMessage id="colorCode-error" className="text-red-600 font-medium" />
+                    <FormMessage id="color_code-error" className="text-red-600 font-medium" />
                   </FormItem>
                 )}
               />
             </div>
             <FormField
               control={form.control}
-              name="isElective"
+              name="is_elective"
               render={({ field }) => (
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                   <FormControl>

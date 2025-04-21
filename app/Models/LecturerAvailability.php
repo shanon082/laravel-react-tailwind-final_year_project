@@ -17,6 +17,15 @@ class LecturerAvailability extends Model
         'start_time',
         'end_time',
     ];
+    public static function rules()
+{
+    return [
+        'lecturer_id' => 'required|exists:lecturers,id',
+        'day' => 'required|string|in:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY',
+        'start_time' => 'required|date_format:H:i',
+        'end_time' => 'required|date_format:H:i|after:start_time',
+    ];
+}
 
     protected $casts = [
         'start_time' => 'datetime:H:i',

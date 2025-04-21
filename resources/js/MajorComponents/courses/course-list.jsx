@@ -22,6 +22,8 @@ import {
 import { Badge } from "../../Components/badge";
 import { Edit, MoreHorizontal, Loader2 } from "lucide-react";
 import { router } from "@inertiajs/react";
+import { Tooltip } from "@radix-ui/react-tooltip";
+import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ToolTip";
 
 const CourseList = ({ onEditCourse, coursesResponse }) => {
   console.log("coursesResponse:", coursesResponse); // Debug log
@@ -71,7 +73,7 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                 <TableHead>Year</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="w-12">Color</TableHead>
-                {onEditCourse && <TableHead className="w-14"></TableHead>}
+                {onEditCourse && <TableHead className="w-14">Action</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -80,7 +82,7 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                   <TableCell className="font-medium">{course.code}</TableCell>
                   <TableCell>{course.name}</TableCell>
                   <TableCell>{course.department}</TableCell>
-                  <TableCell>Year {course.year_level}</TableCell>
+                  <TableCell>{course.year_level}</TableCell>
                   <TableCell>
                     {course.is_elective ? (
                       <Badge variant="secondary">Elective</Badge>
@@ -96,19 +98,23 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                   </TableCell>
                   {onEditCourse && (
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => onEditCourse(course.id)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => onEditCourse(course.id)}
+                              className="text-blue-500 hover:bg-blue-100 rounded-full"
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Edit</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </TableCell>
                   )}
                 </TableRow>

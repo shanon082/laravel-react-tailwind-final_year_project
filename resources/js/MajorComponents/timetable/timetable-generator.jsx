@@ -23,13 +23,13 @@ const TimetableGenerator = ({ academicYear, semester }) => {
 
   const generateMutation = useMutation({
     mutationFn: async (data) => {
-      const response = await apiRequest("POST", "/api/timetable/generate", data);
+      const response = await apiRequest("POST", "/timetable/generate", data);
       return response.json();
     },
     onSuccess: (data) => {
-      queryClient.invalidateQueries({ queryKey: ['/api/timetable'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/conflicts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/timetable'] });
+      queryClient.invalidateQueries({ queryKey: ['/conflicts'] });
+      queryClient.invalidateQueries({ queryKey: ['/stats'] });
       
       toast({
         title: "Timetable Generated",

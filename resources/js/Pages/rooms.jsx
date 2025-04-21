@@ -25,7 +25,9 @@ const Rooms = ({ auth, roomsResponse, filters }) => {
   // Pre-fetch room data for editing
   const { data: editingRoomData } = useQuery({
     queryKey: ["/rooms", editingRoomId],
-    queryFn: () => apiRequest("GET", `/rooms/${editingRoomId}`),
+    queryFn: () =>{ apiRequest("GET", `/rooms/${editingRoomId}`);
+    return response.json(); 
+  },
     enabled: !!editingRoomId,
   });
 

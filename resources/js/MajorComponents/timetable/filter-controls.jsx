@@ -11,6 +11,7 @@ import {
 import { Day } from '../../types';
 import { Label } from '../../Components/Label';
 import { useQuery } from '@tanstack/react-query';
+import SecondaryButton from '@/Components/SecondaryButton';
 
 const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   const [department, setDepartment] = useState(defaultFilters.department);
@@ -22,12 +23,12 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
 
   // Fetch lecturers for dropdown
   const { data: lecturers } = useQuery({
-    queryKey: ['/api/lecturers'],
+    queryKey: ['/lecturers'],
   });
 
   // Fetch rooms for dropdown
   const { data: rooms } = useQuery({
-    queryKey: ['/api/rooms'],
+    queryKey: ['/rooms'],
   });
 
   // Apply filters when the form is submitted
@@ -191,13 +192,13 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
         </div>
 
         <div className="flex justify-end mt-6">
-          <Button
+          <SecondaryButton
             variant="outline"
             onClick={resetFilters}
             className="mr-3"
           >
             Reset
-          </Button>
+          </SecondaryButton>
           
           <Button
             onClick={applyFilters}

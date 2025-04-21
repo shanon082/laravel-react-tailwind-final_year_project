@@ -1,21 +1,21 @@
-import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon, BookOpenTextIcon, Building2Icon, Users2 } from 'lucide-react';
+import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon, BookOpenTextIcon, Building2Icon, Users2, Building, User } from 'lucide-react';
 import StatsCard from './stats-card';
 import { useQuery } from '@tanstack/react-query';
 import axios from "axios";
 
 const QuickStats = () => {
-  // const { data: stats, isLoading } = useQuery({
-  //   queryKey: ['/api/stats'],
-  // });
-  const fetchStats = async () => {
-    const response = await axios.get("/api/stats");
-    return response.data;
-  };
-  
-  const { data:stats, isLoading, error } = useQuery({
-    queryKey: ["/api/stats"],
-    queryFn: fetchStats
+  const { data: stats, isLoading } = useQuery({
+    queryKey: ['/stats'],
   });
+  // const fetchStats = async () => {
+  //   const response = await axios.get("/api/stats");
+  //   return response.data;
+  // };
+  
+  // const { data:stats, isLoading, error } = useQuery({
+  //   queryKey: ["/api/stats"],
+  //   queryFn: fetchStats
+  // });
 
   if (isLoading) {
     return (
@@ -54,8 +54,8 @@ const QuickStats = () => {
       <StatsCard 
         title="Lecturers"
         value={stats?.totalLecturers || 0}
-        icon={<Users2 className="h-6 w-6 text-white" />}
-        iconBgColor="bg-secondary"
+        icon={<User className="h-6 w-6 text-white" />}
+        iconBgColor="bg-orange-500"
         linkText="View all lecturers"
         linkHref="/lecturers"
       />
@@ -63,8 +63,8 @@ const QuickStats = () => {
       <StatsCard 
         title="Available Rooms"
         value={stats?.availableRooms || 0}
-        icon={<Building2Icon className="h-6 w-6 text-white" />}
-        iconBgColor="bg-accent"
+        icon={<Building className="h-6 w-6 text-white" />}
+        iconBgColor="bg-green-500"
         linkText="View all rooms"
         linkHref="/rooms"
       />

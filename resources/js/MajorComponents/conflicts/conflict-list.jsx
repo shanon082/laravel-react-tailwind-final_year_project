@@ -7,6 +7,7 @@ import { apiRequest } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import { UserRole } from "../../types";
 import { useAuth } from "../../hooks/use-auth";
+import PrimaryButton from "@/Components/PrimaryButton";
 
 const ConflictList = () => {
   const { toast } = useToast();
@@ -14,18 +15,22 @@ const ConflictList = () => {
   
   // Get conflicts
   const { data: conflicts, isLoading } = useQuery({
-    queryKey: ['/api/conflicts'],
+    queryKey: ['conflicts'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/conflicts');
+      return response.json();
+    },
   });
 
   // Resolve conflict mutation
   const resolveConflictMutation = useMutation({
     mutationFn: async (conflictId) => {
-      await apiRequest("PUT", `/api/conflicts/${conflictId}/resolve`, {});
+      await apiRequest("PUT", `/conflicts/${conflictId}/resolve`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/api/conflicts'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/timetable'] });
-      queryClient.invalidateQueries({ queryKey: ['/api/stats'] });
+      queryClient.invalidateQueries({ queryKey: ['/conflicts'] });
+      queryClient.invalidateQueries({ queryKey: ['/timetable'] });
+      queryClient.invalidateQueries({ queryKey: ['/stats'] });
       toast({
         title: "Conflict resolved",
         description: "The conflict has been marked as resolved",
@@ -123,19 +128,19 @@ const ConflictList = () => {
                   </div>
                   {user?.role === UserRole.ADMIN && (
                     <div className="mt-2 flex space-x-2">
-                      <Button
+                      <PrimaryButton
                         size="sm"
                         onClick={() => handleResolve(conflict.id)}
                         disabled={resolveConflictMutation.isPending}
                       >
                         {resolveConflictMutation.isPending ? 'Resolving...' : 'Resolve'}
-                      </Button>
-                      <Button
+                      </PrimaryButton>
+                      <PrimaryButton
                         size="sm"
                         variant="outline"
                       >
                         Ignore
-                      </Button>
+                      </PrimaryButton>
                     </div>
                   )}
                 </div>

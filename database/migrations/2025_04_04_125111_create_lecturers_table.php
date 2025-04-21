@@ -13,8 +13,11 @@ return new class extends Migration
     {
         Schema::create('lecturers', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            $table->string('username');
+            $table->string('fullName');
+            $table->string('email');
             $table->string('department');
+            $table->string('contact');
             $table->string('title');
             $table->timestamps();
         });

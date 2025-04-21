@@ -79,7 +79,7 @@ class CourseController extends Controller
         $course = Course::findOrFail($id);
         $validated = $request->validate([
             'code' => 'required|string|min:3|unique:courses,code,' . $id,
-            'name' => 'required|string|min:3',
+            'name' => 'required|string|min:3|max:255',
             'department' => 'required|string',
             'is_elective' => 'boolean',
             'color_code' => 'required|string|regex:/^#[0-9A-F]{6}$/i',
@@ -96,6 +96,43 @@ class CourseController extends Controller
         $course = Course::findOrFail($id);
         $course->delete();
 
-        return redirect()->route('courses')->with('success', 'Course deleted successfully');
+        // return redirect()->route('courses')->with('success', 'Course deleted successfully');
+        return response()->json(['message' => 'Course deleted successfully']);
+    }
+
+      /**
+     * Get all lecturers teaching this course.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function lecturers($id)
+    {
+        $course = Course::findOrFail($id);
+        return response()->json($course->lecturers);
+    }
+
+        /**
+     * Get all timetable entries for this course.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function timetableEntries($id)
+    {
+        $course = Course::findOrFail($id);
+        return response()->json($course->timetableEntries);
+    }
+
+    /**
+     * Get all students enrolled in this course.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\Response
+     */
+    public function students($id)
+    {
+        $course = Course::findOrFail($id);
+        return response()->json($course->students);
     }
 }
