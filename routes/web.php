@@ -56,47 +56,6 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->group(function () {
-    Route::get('/stats', function() {
-        return response()->json([
-            'totalCourses' => Course::count(),
-            'totalLecturers' => Lecturer::count(),
-            'availableRooms' => Room::where('is_available', true)->count(),
-            'totalConflicts' => Conflict::count(),
-        ]);
-    });
-    Route::get('/rooms', [RoomController::class, 'index']);
-    Route::get('/rooms/{id}', [RoomController::class, 'show']);
-    Route::post('/rooms', [RoomController::class, 'store']);
-    Route::put('/rooms/{id}', [RoomController::class, 'update']);
-    Route::delete('/rooms/{id}', [RoomController::class, 'destroy']);
-    Route::get('/rooms/{id}/timetable', [RoomController::class, 'timetableEntries']);
-    Route::get('/rooms/{id}/availability', [RoomController::class, 'availability']);
-
-    Route::get('/courses', [CourseController::class, 'index']);
-    Route::get('/courses/{id}', [CourseController::class, 'show']);
-    Route::post('/courses', [CourseController::class, 'store']);
-    Route::put('/courses/{id}', [CourseController::class, 'update']);
-    Route::delete('/courses/{id}', [CourseController::class, 'destroy']);
-    Route::get('/courses/{id}/lecturers', [CourseController::class, 'lecturers']);
-    Route::get('/courses/{id}/timetable', [CourseController::class, 'timetableEntries']);
-    Route::get('/courses/{id}/students', [CourseController::class, 'students']);
-
-    Route::get('/lecturers', [LecturerController::class, 'index']);
-    Route::get('/lecturers/{id}', [LecturerController::class, 'show']);
-    Route::post('/lecturers', [LecturerController::class, 'store']);    
-    Route::put('/lecturers/{id}', [LecturerController::class, 'update']);
-    Route::delete('/lecturers/{id}', [LecturerController::class, 'destroy']);
-    Route::get('/lecturers/{id}/courses', [LecturerController::class, 'courses']);
-    Route::get('/lecturers/{id}/timetable', [LecturerController::class, 'timetableEntries']);
-    Route::get('/lecturers/{id}/availability', [LecturerController::class, 'availability']);
-
-    Route::get('/timetable', [TimetableController::class, 'index']);
-    Route::post('/timetable', [TimetableController::class, 'store']);
-    Route::get('/timetable/{id}', [TimetableController::class, 'show']);
-    Route::put('/timetable/{id}', [TimetableController::class, 'update']);
-    Route::delete('/timetable/{id}', [TimetableController::class, 'destroy']);
-    Route::get('/timetable/{id}/conflicts', [TimetableController::class, 'conflicts']);
-    Route::post('/timetable/generate', [TimetableController::class, 'generate']);
 });
 
 Route::middleware('auth')->group(function () {

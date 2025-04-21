@@ -9,18 +9,29 @@ import { UserRole } from "../../types";
 import { useAuth } from "../../hooks/use-auth";
 import PrimaryButton from "@/Components/PrimaryButton";
 
+
 const ConflictList = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  
+
+  // Values for filtering
+  const academicYear = "2023-2024";
+  const semester = "First";
+
   // Get conflicts
-  const { data: conflicts, isLoading } = useQuery({
-    queryKey: ['conflicts'],
+  const { data: timetable, isLoading } = useQuery({
+    queryKey: ['timetable', academicYear, semester],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/conflicts');
+      const response = await apiRequest('GET', `/timetable?academicYear=${academicYear}&semester=${semester}`);
       return response.json();
     },
   });
+
+  const conflicts = timetable?.conflicts || [];
+  const handleData = async (data) => {
+      return response.json();
+    };
+  
 
   // Resolve conflict mutation
   const resolveConflictMutation = useMutation({
@@ -28,7 +39,7 @@ const ConflictList = () => {
       await apiRequest("PUT", `/conflicts/${conflictId}/resolve`, {});
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['/conflicts'] });
+      
       queryClient.invalidateQueries({ queryKey: ['/timetable'] });
       queryClient.invalidateQueries({ queryKey: ['/stats'] });
       toast({
@@ -65,7 +76,7 @@ const ConflictList = () => {
     );
   }
 
-  if (!conflicts || conflicts.length === 0) {
+  if (!timetable || conflicts.length === 0) {
     return (
       <Card className="bg-white shadow rounded-lg mb-8">
         <CardHeader className="px-4 py-5 sm:px-6 border-b border-gray-200">

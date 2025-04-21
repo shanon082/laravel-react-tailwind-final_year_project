@@ -1,5 +1,14 @@
 import { QueryClient } from "@tanstack/react-query";
 
+function getCookie(name) {
+  const value = `; ${document.cookie}`;
+  const parts = value.split(`; ${name}=`);
+  if (parts.length === 2) {
+    return parts.pop().split(";").shift();
+  }
+  return null;
+}
+
 async function throwIfResNotOk(res) {
   if (!res.ok) {
     const text = (await res.text()) || res.statusText;
@@ -7,13 +16,15 @@ async function throwIfResNotOk(res) {
   }
 }
 
-export async function apiRequest(method, url, data) {
-  const res = await fetch(url, {
+export async function apiRequest(method, url, data = null) {
+    const csrfToken = getCookie("XSRF-TOKEN");
+    const res = await fetch(url, {
     method,
     headers: {
       "Content-Type": "application/json",
       "Accept": "application/json",
-      "X-CSRF-TOKEN": csrfToken, // Add CSRF token
+      "X-CSRF-TOKEN": csrfToken,
+       ... (method === 'POST' || method === 'PUT' || method === 'DELETE' ? { "X-Requested-With": "XMLHttpRequest" } : {}),
     },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include", // Important for sessions
