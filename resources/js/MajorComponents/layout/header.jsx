@@ -37,7 +37,7 @@ const Header = () => {
           {/* Left Section */}
           <div className="flex items-center space-x-4">
             <div className="flex md:hidden">
-              <Button
+              {/* <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setMobileMenuOpen(true)}
@@ -45,7 +45,7 @@ const Header = () => {
                 className="rounded-full hover:bg-gray-100 text-gray-600"
               >
                 <Menu className="h-5 w-5" />
-              </Button>
+              </Button> */}
             </div>
             <div className="flex items-center">
               <ApplicationLogo className="h-8 w-auto text-primary" />

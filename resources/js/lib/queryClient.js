@@ -27,7 +27,7 @@ export async function apiRequest(method, url, data = null) {
        ... (method === 'POST' || method === 'PUT' || method === 'DELETE' ? { "X-Requested-With": "XMLHttpRequest" } : {}),
     },
     body: data ? JSON.stringify(data) : undefined,
-    credentials: "include", // Important for sessions
+    credentials: "include",
   });
 
   await throwIfResNotOk(res);

@@ -1,11 +1,12 @@
 <?php
 
-namespace App\Http\Controllers\API;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Models\Faculty;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Inertia\Inertia;
 
 class FacultyController extends Controller
 {
@@ -16,8 +17,12 @@ class FacultyController extends Controller
      */
     public function index()
     {
+        // Fetch all faculties
         $faculties = Faculty::all();
-        return response()->json($faculties);
+        return Inertia::render('Faculty', [
+            'faculties' => $faculties,
+            'isAdmin' => Auth::user()->isAdmin(), // Pass admin status for UI permissions
+        ]);
     }
 
     /**
@@ -28,7 +33,6 @@ class FacultyController extends Controller
      */
     public function store(Request $request)
     {
-        // Check if user is admin
         if (!Auth::user()->isAdmin()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -36,7 +40,6 @@ class FacultyController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:faculties',
-            'description' => 'nullable|string',
         ]);
 
         $faculty = Faculty::create($validated);
@@ -65,7 +68,6 @@ class FacultyController extends Controller
      */
     public function update(Request $request, $id)
     {
-        // Check if user is admin
         if (!Auth::user()->isAdmin()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
@@ -75,7 +77,6 @@ class FacultyController extends Controller
         $validated = $request->validate([
             'name' => 'string|max:255',
             'code' => 'string|unique:faculties,code,' . $id,
-            'description' => 'nullable|string',
         ]);
 
         $faculty->update($validated);
@@ -91,7 +92,6 @@ class FacultyController extends Controller
      */
     public function destroy($id)
     {
-        // Check if user is admin
         if (!Auth::user()->isAdmin()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }

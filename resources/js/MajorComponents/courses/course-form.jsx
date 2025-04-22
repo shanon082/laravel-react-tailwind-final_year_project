@@ -101,7 +101,7 @@ const CourseForm = ({ courseId, onClose }) => {
               setShowSuccess(true);
               toast({
                 title: isEditMode ? "Course Updated" : "Course Created",
-                description: `The course has been successfully`,// ${isEditMode ? "updated" : "created"}.`,
+                description: `The course has been successfully ${isEditMode ? "updated" : "created"}.`,
                 className: "bg-green-50 border-green-200 text-green-800",
                 icon: <CheckCircle2 className="h-5 w-5" />,
               });
@@ -145,8 +145,8 @@ const CourseForm = ({ courseId, onClose }) => {
               setShowSuccess(true);
               setTimeout(() => {
                 toast({
-                  title: isEditMode ? "Course Updated" : "Course Created",
-                  description: `The course has been successfully ${isEditMode ? "updated" : "created"}.`,
+                  title:`Course Created`,
+                  description: `The course has been successfully created.`,
                   className: "bg-green-50 border-green-200 text-green-800",
                   icon: <CheckCircle2 className="h-5 w-5" />,
                 });

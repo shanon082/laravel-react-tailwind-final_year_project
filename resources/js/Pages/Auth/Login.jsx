@@ -66,27 +66,6 @@ export default function Login({ status, canResetPassword }) {
 
                     <InputError message={errors.password} className="mt-2" />
                 </div>
-                {/* <div className="mt-4">
-    <InputLabel htmlFor="role" value="Login as" />
-
-    <select
-        id="role"
-        name="role"
-        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm"
-        value={data.role}
-        onChange={(e) => setData('role', e.target.value)}
-        required
-    >
-        <option value="">Select a role</option>
-        <option value="student">Student</option>
-        <option value="lecturer">Lecturer</option>
-        <option value="admin">Admin</option>
-    </select>
-
-    <InputError message={errors.role} className="mt-2" />
-</div> */}
-
-
                 <div className="mt-4 block">
                     <label className="flex items-center">
                         <Checkbox

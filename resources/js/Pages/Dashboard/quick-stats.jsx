@@ -1,23 +1,40 @@
-import { BookOpenIcon, Users, BuildingIcon, AlertCircleIcon, BookOpenTextIcon, Building2Icon, Users2, Building, User } from 'lucide-react';
+import { BookOpenIcon, User, Building, AlertCircleIcon } from 'lucide-react';
 import StatsCard from './stats-card';
 import { useQuery } from '@tanstack/react-query';
-import axios from "axios";
+import axios from 'axios';
+
+const apiRequest = async (method, url) => {
+  const response = await axios({ method, url });
+  return response.data;
+};
 
 const QuickStats = () => {
-  const { data: stats, isLoading } = useQuery({
-    queryKey: ['/stats'],
+  // Fetch total courses
+  const { data: coursesData, isLoading: isCoursesLoading } = useQuery({
+    queryKey: ['totalCourses'],
+    queryFn: () => apiRequest('GET', '/total-courses'),
   });
-  // const fetchStats = async () => {
-  //   const response = await axios.get("/api/stats");
-  //   return response.data;
-  // };
-  
-  // const { data:stats, isLoading, error } = useQuery({
-  //   queryKey: ["/api/stats"],
-  //   queryFn: fetchStats
-  // });
 
-  if (isLoading) {
+  // Fetch total lecturers
+  const { data: lecturersData, isLoading: isLecturersLoading } = useQuery({
+    queryKey: ['totalLecturers'],
+    queryFn: () => apiRequest('GET', '/total-lecturers'),
+  });
+
+  // Fetch available rooms
+  const { data: roomsData, isLoading: isRoomsLoading } = useQuery({
+    queryKey: ['availableRooms'],
+    queryFn: () => apiRequest('GET', '/available-rooms'),
+  });
+
+  // Fetch total conflicts
+  const { data: conflictsData, isLoading: isConflictsLoading } = useQuery({
+    queryKey: ['totalConflicts'],
+    queryFn: () => apiRequest('GET', '/total-conflicts'),
+  });
+
+  // Show loading state if any query is loading
+  if (isCoursesLoading || isLecturersLoading || isRoomsLoading || isConflictsLoading) {
     return (
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {[...Array(4)].map((_, i) => (
@@ -42,36 +59,33 @@ const QuickStats = () => {
 
   return (
     <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
-      <StatsCard 
+      <StatsCard
         title="Total Courses"
-        value={stats?.totalCourses || 0}
+        value={coursesData?.totalCourses || 0}
         icon={<BookOpenIcon className="h-6 w-6 text-white" />}
         iconBgColor="bg-primary"
         linkText="View all courses"
         linkHref="/courses"
       />
-      
-      <StatsCard 
+      <StatsCard
         title="Lecturers"
-        value={stats?.totalLecturers || 0}
+        value={lecturersData?.totalLecturers || 0}
         icon={<User className="h-6 w-6 text-white" />}
         iconBgColor="bg-orange-500"
         linkText="View all lecturers"
         linkHref="/lecturers"
       />
-      
-      <StatsCard 
+      <StatsCard
         title="Available Rooms"
-        value={stats?.availableRooms || 0}
+        value={roomsData?.availableRooms || 0}
         icon={<Building className="h-6 w-6 text-white" />}
         iconBgColor="bg-green-500"
         linkText="View all rooms"
         linkHref="/rooms"
       />
-      
-      <StatsCard 
+      <StatsCard
         title="Conflicts"
-        value={stats?.totalConflicts || 0}
+        value={conflictsData?.totalConflicts || 0}
         icon={<AlertCircleIcon className="h-6 w-6 text-white" />}
         iconBgColor="bg-red-500"
         linkText="Resolve conflicts"

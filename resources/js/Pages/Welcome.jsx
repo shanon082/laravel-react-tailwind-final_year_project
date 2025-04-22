@@ -90,11 +90,11 @@ export default function Welcome({ auth }) {
                 {/* Hero Section */}
                 <div className="relative z-10 min-h-screen flex flex-col items-center justify-center px-4 py-16">
                     <div className="max-w-4xl text-center">
-                        <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-blue-600 text-transparent bg-clip-text">
+                        <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-400 to-blue-600 text-transparent bg-clip-text">
                             Soroti University Timetable System
                         </h1>
 
-                        <p className="text-xl md:text-2xl mb-8 text-blue-200 max-w-2xl mx-auto">
+                        <p className="text-2xl md:text-3xl mb-8 text-blue-200 max-w-2xl mx-auto">
                             Streamlining academic scheduling with our intelligent timetable management system.
                         </p>
 
