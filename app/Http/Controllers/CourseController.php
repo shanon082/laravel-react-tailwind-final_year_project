@@ -28,6 +28,17 @@ class CourseController extends Controller
 
         if ($request->header('X-Inertia')) {
             return Inertia::render('Courses', [
+                'courses' => Course::all()->map(function ($course) {
+                    return [
+                        'id' => $course->id,
+                        'code' => $course->code,
+                        'name' => $course->name,
+                        'department' => $course->department,
+                        'is_elective' => $course->is_elective,
+                        'color_code' => $course->color_code,
+                        'year_level' => $course->year_level,
+                    ];
+                }),
                 'auth' => auth()->user(),
                 'coursesResponse' => [
                     'data' => $courses->items(),

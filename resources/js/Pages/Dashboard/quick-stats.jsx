@@ -28,13 +28,13 @@ const QuickStats = () => {
   });
 
   // Fetch total conflicts
-  const { data: conflictsData, isLoading: isConflictsLoading } = useQuery({
-    queryKey: ['totalConflicts'],
-    queryFn: () => apiRequest('GET', '/total-conflicts'),
+  const { data: departmentsData, isLoading: isDepartmentsLoading } = useQuery({
+    queryKey: ['totalDepartments'],
+    queryFn: () => apiRequest('GET', '/total-departments'),
   });
 
   // Show loading state if any query is loading
-  if (isCoursesLoading || isLecturersLoading || isRoomsLoading || isConflictsLoading) {
+  if (isCoursesLoading || isLecturersLoading || isRoomsLoading || isDepartmentsLoading) {
     return (
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-8">
         {[...Array(4)].map((_, i) => (
@@ -84,12 +84,12 @@ const QuickStats = () => {
         linkHref="/rooms"
       />
       <StatsCard
-        title="Conflicts"
-        value={conflictsData?.totalConflicts || 0}
+        title="Departments"
+        value={departmentsData?.totalDepartments || 0}
         icon={<AlertCircleIcon className="h-6 w-6 text-white" />}
         iconBgColor="bg-red-500"
-        linkText="Resolve conflicts"
-        linkHref="/timetable?showConflicts=true"
+        linkText="view all departments"
+        linkHref="/departments"
       />
     </div>
   );

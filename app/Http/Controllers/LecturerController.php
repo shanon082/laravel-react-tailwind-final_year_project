@@ -27,6 +27,17 @@ class LecturerController extends Controller
 
         if ($request->header('X-Inertia')) {
             return Inertia::render('Lecturers', [
+                'lecturers' => Lecturer::all()->map(function ($lecturer) {
+                    return [
+                        'id' => $lecturer->id,
+                        'username' => $lecturer->username,
+                        'fullName' => $lecturer->fullName,
+                        'email' => $lecturer->email,
+                        'department' => $lecturer->department,
+                        'contact' => $lecturer->contact,
+                        'title' => $lecturer->title,
+                    ];
+                }),
                 'auth' => auth()->user(),
                 'lecturersResponse' => [
                     'data' => $lecturers->items(),

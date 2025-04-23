@@ -29,7 +29,18 @@ class DepartmentController extends Controller
         // Check if the request expects an Inertia response
         if ($request->header('X-Inertia')) {
             return Inertia::render('Department', [
-                'departments' => $departments,
+                'departments' => $departments->map(function ($department) {
+                    return [
+                        'id' => $department->id,
+                        'name' => $department->name,
+                        'code' => $department->code,
+                        'faculty' => $department->faculty ? [
+                            'id' => $department->faculty->id,
+                            'name' => $department->faculty->name,
+                        ] : null,
+                    ];
+                }),
+                'auth' => auth()->user(),
                 'isAdmin' => Auth::user()->isAdmin(),
             ]);
         }
@@ -48,7 +59,6 @@ class DepartmentController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'required|string|unique:departments',
             'faculty_id' => 'required|exists:faculties,id',
-            'description' => 'nullable|string',
         ]);
 
         $department = Department::create($validated);

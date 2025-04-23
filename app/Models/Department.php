@@ -13,7 +13,6 @@ class Department extends Model
         'name',
         'code',
         'faculty_id',
-        'description',
     ];
 
     /**

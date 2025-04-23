@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/total-courses', [StatsController::class, 'totalCourses']);
     Route::get('/total-lecturers', [StatsController::class, 'totalLecturers']);
     Route::get('/available-rooms', [StatsController::class, 'availableRooms']);
-    Route::get('/total-conflicts', [StatsController::class, 'totalConflicts']);
+    Route::get('/total-departments', [StatsController::class, 'totalDepartments']);
 
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');

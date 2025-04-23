@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\Department;
 use App\Models\Lecturer;
 use App\Models\Room;
 use App\Models\Timetable; // Assuming you have a Timetable model for conflicts
@@ -26,10 +27,8 @@ class StatsController extends Controller
         return response()->json(['availableRooms' => Room::count()]);
     }
 
-    public function totalConflicts()
+    public function totalDepartments()
     {
-        // Example logic for conflicts (adjust based on your timetable logic)
-        $conflicts = Timetable::whereHas('conflicts')->count(); 
-        return response()->json(['totalConflicts' => $conflicts]);
+        return response()->json(['totalDepartments' => Department::count()]);
     }
 }

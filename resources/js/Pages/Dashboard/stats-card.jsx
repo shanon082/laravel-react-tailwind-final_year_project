@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import { Card, CardContent, CardFooter } from '../../Components/Card';
 
 const StatsCard = ({ 
@@ -25,9 +26,12 @@ const StatsCard = ({
       </CardContent>
       <CardFooter className="bg-gray-50 px-4 py-4 sm:px-6">
         <div className="text-sm">
-          <a href={linkHref} className="font-medium text-primary hover:text-blue-600">
+          <Link 
+            href={linkHref} 
+            className="font-medium text-primary hover:text-blue-600"
+          >
             {linkText}
-          </a>
+          </Link>
         </div>
       </CardFooter>
     </Card>

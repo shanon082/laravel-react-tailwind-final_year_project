@@ -63,6 +63,18 @@ class TimetableController extends Controller
     
         if ($request->header('X-Inertia')) {
             return Inertia::render('Timetable', [
+                'timetable' => TimetableEntry::all()->map(function ($entry) {
+                    return [
+                        'id' => $entry->id,
+                        'course' => $entry->course,
+                        'lecturer' => $entry->lecturer,
+                        'room' => $entry->room,
+                        'time_slot' => $entry->timeSlot,
+                        'day' => $entry->day,
+                        'academic_year' => $entry->academic_year,
+                        'semester' => $entry->semester,
+                    ];
+                }),
                 'auth' => auth()->user(),
                 'filters' => [
                     'academic_year' => $request->academic_year ?? '',

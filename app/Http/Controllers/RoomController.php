@@ -30,6 +30,15 @@ class RoomController extends Controller
 
         if ($request->header('X-Inertia')) {
             return Inertia::render('Rooms', [
+                'rooms' => Room::all()->map(function ($room) {
+                    return [
+                        'id' => $room->id,
+                        'name' => $room->name,
+                        'type' => $room->type,
+                        'building' => $room->building,
+                        'capacity' => $room->capacity,
+                    ];
+                }),
                 'auth' => auth()->user(),
                 'roomsResponse' => [
                     'data' => $rooms->items(),
