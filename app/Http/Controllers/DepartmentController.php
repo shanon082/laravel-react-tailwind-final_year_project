@@ -9,14 +9,33 @@ use Inertia\Inertia;
 
 class DepartmentController extends Controller
 {
-    public function index()
+    // public function index()
+    // {
+    //     // Fetch all departments with their faculties
+    //     $departments = Department::with('faculty')->get();
+    //     return Inertia::render('Department', [
+    //         'departments' => $departments,
+    //         'isAdmin' => Auth::user()->isAdmin(), // Pass admin status for UI permissions
+    //     ]);
+    // }
+
+    public function index(Request $request)
     {
-        // Fetch all departments with their faculties
+        \Log::info('Fetching Departments');
         $departments = Department::with('faculty')->get();
-        return Inertia::render('Department', [
-            'departments' => $departments,
-            'isAdmin' => Auth::user()->isAdmin(), // Pass admin status for UI permissions
-        ]);
+        \Log::info('Departments fetched successfully');
+        \Log::info('Departments:', $departments->toArray());
+    
+        // Check if the request expects an Inertia response
+        if ($request->header('X-Inertia')) {
+            return Inertia::render('Department', [
+                'departments' => $departments,
+                'isAdmin' => Auth::user()->isAdmin(),
+            ]);
+        }
+    
+        // Return JSON for API requests
+        return response()->json($departments);
     }
 
     public function store(Request $request)

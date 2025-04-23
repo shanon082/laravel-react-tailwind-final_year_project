@@ -2,31 +2,61 @@ import Layout from '@/MajorComponents/layout/layout';
 import { Head } from '@inertiajs/react';
 import { useState } from 'react';
 import { useToast } from '../hooks/use-toast';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Send } from 'lucide-react';
+import { apiRequest } from '../lib/queryClient';
+import { Textarea } from '../Components/textarea';
+import { Button } from '../Components/Button';
+import { Label } from '../Components/Label';
 
 export default function Feedback({ auth, feedbackList = [] }) {
     const [filterType, setFilterType] = useState('all');
     const [sortOrder, setSortOrder] = useState('newest');
+    const [replyForm, setReplyForm] = useState({ feedbackId: null, message: '' });
+    const [isSubmitting, setIsSubmitting] = useState(false);
     const { toast } = useToast();
 
     const handleReply = async (feedbackId, userName) => {
-        // Placeholder for reply logic (e.g., open a reply form or send via API)
-        try {
-            // Example: await apiRequest('POST', `/feedback/${feedbackId}/reply`, { message: 'Reply message' });
-            toast({
-                title: 'Reply Sent',
-                description: `Reply sent to ${userName || 'user'}.`,
-                variant: 'default',
-                className: 'bg-green-50 border-green-200 text-green-800',
-                icon: <CheckCircle2 className="h-5 w-5" />,
-            });
-        } catch (error) {
-            toast({
-                title: 'Error',
-                description: 'Could not send reply.',
-                variant: 'destructive',
-            });
+        if (replyForm.feedbackId === feedbackId) {
+            // Submit reply
+            if (!replyForm.message) {
+                toast({
+                    title: 'Error',
+                    description: 'Please provide a reply message.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+
+            setIsSubmitting(true);
+            try {
+                await apiRequest('POST', `/feedback/${feedbackId}/reply`, {
+                    resolution_notes: replyForm.message,
+                });
+                toast({
+                    title: 'Reply Sent',
+                    description: `Reply sent to ${userName || 'user'}.`,
+                    variant: 'default',
+                    className: 'bg-green-50 border-green-200 text-green-800',
+                    icon: <CheckCircle2 className="h-5 w-5" />,
+                });
+                setReplyForm({ feedbackId: null, message: '' });
+            } catch (error) {
+                toast({
+                    title: 'Error',
+                    description: 'Could not send reply.',
+                    variant: 'destructive',
+                });
+            } finally {
+                setIsSubmitting(false);
+            }
+        } else {
+            // Open reply form
+            setReplyForm({ feedbackId, message: '' });
         }
+    };
+
+    const handleCancelReply = () => {
+        setReplyForm({ feedbackId: null, message: '' });
     };
 
     const filteredFeedback = feedbackList
@@ -62,10 +92,10 @@ export default function Feedback({ auth, feedbackList = [] }) {
                                 className="mt-1 block w-full sm:w-48 rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                             >
                                 <option value="all">All</option>
-                                <option value="bug">Bug</option>
-                                <option value="feature">Feature Request</option>
-                                <option value="improvement">Improvement</option>
-                                <option value="other">Other</option>
+                                <option value="BUG">Bug</option>
+                                <option value="FEATURE">Feature Request</option>
+                                <option value="IMPROVEMENT">Improvement</option>
+                                <option value="OTHER">Other</option>
                             </select>
                         </div>
                         <div>
@@ -95,46 +125,95 @@ export default function Feedback({ auth, feedbackList = [] }) {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredFeedback.map((feedback, index) => (
+                            {filteredFeedback.map((feedback) => (
                                 <div
-                                    key={index}
+                                    key={feedback.id}
                                     className="p-6 bg-white rounded-2xl shadow-md border border-gray-100 hover:shadow-lg transition-all"
                                 >
                                     <div className="flex items-center justify-between mb-4">
                                         <span
                                             className={`px-3 py-1 rounded-full text-xs font-medium ${
-                                                feedback.type === 'bug'
+                                                feedback.type === 'BUG'
                                                     ? 'bg-red-100 text-red-600'
-                                                    : feedback.type === 'feature'
+                                                    : feedback.type === 'FEATURE'
                                                     ? 'bg-blue-100 text-blue-600'
-                                                    : feedback.type === 'improvement'
+                                                    : feedback.type === 'IMPROVEMENT'
                                                     ? 'bg-yellow-100 text-yellow-600'
-                                                    : feedback.type === 'other'
+                                                    : feedback.type === 'OTHER'
                                                     ? 'bg-gray-100 text-gray-600'
                                                     : 'bg-gray-100 text-gray-600'
                                             }`}
                                         >
-                                            {feedback.type.toUpperCase()}
+                                            {feedback.type}
                                         </span>
                                         <span className="text-xs text-gray-400">
                                             {new Date(feedback.created_at).toLocaleDateString()}
                                         </span>
                                     </div>
+                                    <h3 className="text-md font-semibold text-gray-800 mb-2">{feedback.title}</h3>
                                     <p className="text-gray-800 text-sm whitespace-pre-wrap">
-                                        {feedback.message}
+                                        {feedback.content}
                                     </p>
+                                    {feedback.course && (
+                                        <p className="text-sm text-gray-500 mt-2">
+                                            Related to: <span className="font-semibold">{feedback.course.name}</span>
+                                        </p>
+                                    )}
                                     {feedback.user && (
                                         <div className="mt-4 border-t pt-3 text-sm text-gray-500">
                                             Submitted by{' '}
                                             <span className="font-semibold text-gray-700">{feedback.user.name}</span>
                                         </div>
                                     )}
-                                    <button
-                                        onClick={() => handleReply(feedback.id, feedback.user?.name)}
-                                        className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
-                                    >
-                                        Reply
-                                    </button>
+                                    {feedback.is_resolved && feedback.resolution_notes && (
+                                        <div className="mt-4 border-t pt-3">
+                                            <p className="text-sm text-gray-500">
+                                                <span className="font-semibold text-green-600">Resolved</span> - Admin Response:
+                                            </p>
+                                            <p className="text-sm text-gray-800 mt-1">{feedback.resolution_notes}</p>
+                                        </div>
+                                    )}
+                                    {replyForm.feedbackId === feedback.id ? (
+                                        <div className="mt-4 space-y-2">
+                                            <Label htmlFor="reply-message" className="text-sm font-medium text-gray-700">
+                                                Your Reply
+                                            </Label>
+                                            <Textarea
+                                                id="reply-message"
+                                                value={replyForm.message}
+                                                onChange={(e) => setReplyForm({ ...replyForm, message: e.target.value })}
+                                                placeholder="Enter your reply to the user..."
+                                                className="min-h-[80px] text-sm rounded-lg border-gray-200 focus:ring-2 focus:ring-blue-300"
+                                                disabled={isSubmitting}
+                                            />
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    onClick={() => handleReply(feedback.id, feedback.user?.name)}
+                                                    disabled={isSubmitting}
+                                                    className="bg-indigo-600 text-white hover:bg-indigo-700 flex items-center gap-2"
+                                                >
+                                                    <Send className="h-4 w-4" />
+                                                    Send Reply
+                                                </Button>
+                                                <Button
+                                                    onClick={handleCancelReply}
+                                                    disabled={isSubmitting}
+                                                    variant="outline"
+                                                    className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                                                >
+                                                    Cancel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleReply(feedback.id, feedback.user?.name)}
+                                            className="mt-2 text-sm text-indigo-600 hover:text-indigo-800"
+                                            disabled={feedback.is_resolved}
+                                        >
+                                            {feedback.is_resolved ? 'Resolved' : 'Reply'}
+                                        </button>
+                                    )}
                                 </div>
                             ))}
                         </div>

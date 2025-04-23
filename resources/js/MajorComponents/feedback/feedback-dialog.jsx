@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Dialog, 
   DialogTrigger, 
@@ -16,19 +16,24 @@ import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
 import { motion, AnimatePresence } from "framer-motion";
 import DangerButton from "@/Components/DangerButton";
+import { UserRole } from "../../types/index";
+import { useAuth } from "@/hooks/use-auth";
 
 const feedbackTypes = [
-  { id: "bug", label: "Bug Report", icon: "🐛" },
-  { id: "feature", label: "Feature Request", icon: "✨" },
-  { id: "improvement", label: "Improvement Suggestion", icon: "💡" },
-  { id: "other", label: "Other", icon: "📝" }
+  { id: "BUG", label: "Bug Report", icon: "🐛" },
+  { id: "FEATURE", label: "Feature Request", icon: "✨" },
+  { id: "IMPROVEMENT", label: "Improvement Suggestion", icon: "💡" },
+  { id: "OTHER", label: "Other", icon: "📝" }
 ];
 
 const FeedbackDialog = () => {
+  const { user } = useAuth();
+  const [courses, setCourses] = useState([]);
   const [open, setOpen] = useState(false);
   const [feedback, setFeedback] = useState({
     type: "",
-    message: ""
+    message: "",
+    course_id: null,
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -36,8 +41,36 @@ const FeedbackDialog = () => {
   const { toast } = useToast();
   const maxLength = 500;
 
+  // Only render for lecturers and students
+  const allowedRoles = [UserRole.LECTURER, UserRole.STUDENT];
+  if (!user?.role || !allowedRoles.includes(user.role)) {
+    console.log('FeedbackDialog hidden: Invalid or unauthorized user role', user?.role);
+    return null;
+  }
+
+  // Fetch courses for course_id selection
+  useEffect(() => {
+    if (open && user) {
+      const fetchCourses = async () => {
+        try {
+          const response = await apiRequest('GET', '/courses');
+          setCourses(response.data || []);
+        } catch (err) {
+          console.error('Failed to fetch courses:', err);
+        }
+      };
+      fetchCourses();
+    }
+  }, [open, user]);
+
   const handleTypeChange = (type) => {
     setFeedback(prev => ({ ...prev, type }));
+    setError("");
+  };
+
+  const handleCourseChange = (e) => {
+    const courseId = e.target.value ? Number(e.target.value) : null;
+    setFeedback(prev => ({ ...prev, course_id: courseId }));
     setError("");
   };
 
@@ -74,10 +107,9 @@ const FeedbackDialog = () => {
       await apiRequest('POST', '/feedback', {
         type: feedback.type,
         message: feedback.message,
-        course_id: null, 
+        course_id: feedback.course_id,
       });
       
-
       setShowSuccess(true);
       setTimeout(() => {
         toast({
@@ -87,7 +119,7 @@ const FeedbackDialog = () => {
           className: "bg-green-50 border-green-200 text-green-800",
           icon: <CheckCircle2 className="h-5 w-5" />,
         });
-        setFeedback({ type: "", message: "" });
+        setFeedback({ type: "", message: "", course_id: null });
         setShowSuccess(false);
         setOpen(false);
         setIsSubmitting(false);
@@ -184,6 +216,26 @@ const FeedbackDialog = () => {
                     </button>
                   ))}
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="course-id" className="text-sm font-medium text-gray-700">
+                  Related Course (Optional)
+                </Label>
+                <select
+                  id="course-id"
+                  value={feedback.course_id || ""}
+                  onChange={handleCourseChange}
+                  className="w-full rounded-md border-gray-200 focus:ring-2 focus:ring-blue-300 transition-all"
+                  disabled={isSubmitting}
+                >
+                  <option value="">Select a course (optional)</option>
+                  {courses.map(course => (
+                    <option key={course.id} value={course.id}>
+                      {course.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <div className="space-y-2">

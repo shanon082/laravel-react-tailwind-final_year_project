@@ -14,9 +14,9 @@ import SecondaryButton from '@/Components/SecondaryButton';
 export default function LecturerDashboard({ auth }) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("timetable");
-  // const [filters, setFilters] = useState({
-  //   viewType: 'week'
-  // });
+  const [filters, setFilters] = useState({
+    viewType: 'week'
+  });
 
   // Get the current academic term info
   const academicYear = "2023-2024";

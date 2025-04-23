@@ -20,13 +20,12 @@ export default function Department({ auth, departments, isAdmin }) {
         name: '',
         code: '',
         faculty_id: '',
-        description: '',
     });
 
     // Fetch faculties for the form
     const { data: faculties, isLoading: isFacultiesLoading } = useQuery({
         queryKey: ['faculties'],
-        queryFn: () => apiRequest('GET', '/api/faculties'), // Adjust to your faculties endpoint
+        queryFn: () => apiRequest('GET', '/faculties'), // Adjust to your faculties endpoint
     });
 
     // Create department mutation
@@ -35,7 +34,7 @@ export default function Department({ auth, departments, isAdmin }) {
         onSuccess: () => {
             queryClient.invalidateQueries(['departments']);
             setIsCreateModalOpen(false);
-            setFormData({ name: '', code: '', faculty_id: '', description: '' });
+            setFormData({ name: '', code: '', faculty_id: ''});
         },
         onError: (error) => alert(error.response?.data?.message || 'Error creating department'),
     });
@@ -47,7 +46,7 @@ export default function Department({ auth, departments, isAdmin }) {
             queryClient.invalidateQueries(['departments']);
             setIsEditModalOpen(false);
             setSelectedDepartment(null);
-            setFormData({ name: '', code: '', faculty_id: '', description: '' });
+            setFormData({ name: '', code: '', faculty_id: ''});
         },
         onError: (error) => alert(error.response?.data?.message || 'Error updating department'),
     });
@@ -81,7 +80,6 @@ export default function Department({ auth, departments, isAdmin }) {
             name: department.name,
             code: department.code,
             faculty_id: department.faculty_id,
-            description: department.description || '',
         });
         setIsEditModalOpen(true);
     };
@@ -128,7 +126,7 @@ export default function Department({ auth, departments, isAdmin }) {
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{department.code}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{department.faculty?.name}</td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                    <button
+                                                    {/* <button
                                                         onClick={() => viewDetails(department.id, 'lecturers')}
                                                         className="text-indigo-600 hover:text-indigo-900 mr-4"
                                                     >
@@ -145,7 +143,7 @@ export default function Department({ auth, departments, isAdmin }) {
                                                         className="text-indigo-600 hover:text-indigo-900 mr-4"
                                                     >
                                                         <Building2 className="h-5 w-5" />
-                                                    </button>
+                                                    </button> */}
                                                     {isAdmin && (
                                                         <>
                                                             <button
@@ -219,14 +217,6 @@ export default function Department({ auth, departments, isAdmin }) {
                                     )}
                                 </select>
                             </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700">Description</label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
-                                />
-                            </div>
                             <div className="flex justify-end">
                                 <button
                                     type="button"
@@ -293,14 +283,6 @@ export default function Department({ auth, departments, isAdmin }) {
                                         ))
                                     )}
                                 </select>
-                            </div>
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700">Description</label>
-                                <textarea
-                                    value={formData.description}
-                                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200"
-                                />
                             </div>
                             <div className="flex justify-end">
                                 <button

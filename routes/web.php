@@ -74,7 +74,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:student')->get('/student/dashboard', [DashboardController::class, 'index'])->name('student.dashboard');
 
     // Feedback Routes
+    Route::get('/feedback', [FeedbackController::class, 'index'])->name('feedback');
     Route::post('/feedback', [FeedbackController::class, 'store'])->name('feedback.store');
+    Route::post('/feedback/{feedbackId}/reply', [FeedbackController::class, 'reply'])->name('feedback.reply');
 
     // Room Routes
     Route::get('/rooms', [RoomController::class, 'index'])->name('rooms');

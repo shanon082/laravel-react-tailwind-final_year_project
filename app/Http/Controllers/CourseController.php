@@ -48,6 +48,7 @@ class CourseController extends Controller
             'current_page' => $courses->currentPage(),
             'last_page' => $courses->lastPage(),
             'total' => $courses->total(),
+            Course::select('id','name')->get(),
         ]);
     }
 
