@@ -2,7 +2,7 @@ import { useState } from "react";
 import Layout from "../MajorComponents/layout/layout";
 import CourseList from "../MajorComponents/courses/course-list";
 import CourseForm from "../MajorComponents/courses/course-form";
-import Modal from "../components/modal"; // Use the provided Modal component
+import Modal from "../components/modal";
 import { Button } from "../components/button";
 import { Plus } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
@@ -10,7 +10,7 @@ import { UserRole } from "../types";
 import { Head } from "@inertiajs/react";
 
 const Courses = ({ auth, coursesResponse }) => {
-  console.log("Courses props:", { auth, coursesResponse }); // Debug log
+  console.log("Courses props:", { auth, coursesResponse });
   const { user } = useAuth();
   const [modalState, setModalState] = useState({
     isOpen: false,

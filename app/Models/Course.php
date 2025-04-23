@@ -12,10 +12,13 @@ class Course extends Model
     protected $fillable = [
         'code',
         'name',
+        'credit_units',
         'department',
+        'lecturer',
         'is_elective',
         'color_code',
         'year_level',
+        'semester',
     ];
 
     protected $casts = [
@@ -23,9 +26,25 @@ class Course extends Model
     ];
 
     /**
+     * Get the department this course belongs to
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department', 'id');
+    }
+
+    /**
+     * Get the lecturer assigned to this course
+     */
+    public function lecturer()
+    {
+        return $this->belongsTo(Lecturer::class, 'lecturer', 'id');
+    }
+
+    /**
      * Get the lecturers teaching this course through timetable entries
      */
-    public function lecturers()
+    public function timetableLecturers()
     {
         return $this->hasManyThrough(
             Lecturer::class,

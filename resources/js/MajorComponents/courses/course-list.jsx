@@ -26,13 +26,13 @@ import { Tooltip } from "@radix-ui/react-tooltip";
 import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ToolTip";
 
 const CourseList = ({ onEditCourse, coursesResponse }) => {
-  console.log("coursesResponse:", coursesResponse); // Debug log
+  console.log("coursesResponse:", coursesResponse);
   const courses = Array.isArray(coursesResponse?.data) ? coursesResponse.data : [];
   const currentPage = coursesResponse?.current_page || 1;
   const lastPage = coursesResponse?.last_page || 1;
   const total = coursesResponse?.total || courses.length;
 
-  console.log("Courses to render:", courses); // Debug log
+  console.log("Courses to render:", courses);
 
   const setCurrentPage = (page) => {
     router.get(
@@ -70,7 +70,10 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Department</TableHead>
+                <TableHead>Credit Units</TableHead>
+                <TableHead>Lecturer</TableHead>
                 <TableHead>Year</TableHead>
+                <TableHead>Semester</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead className="w-12">Color</TableHead>
                 {onEditCourse && <TableHead className="w-14">Action</TableHead>}
@@ -82,7 +85,10 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                   <TableCell className="font-medium">{course.code}</TableCell>
                   <TableCell>{course.name}</TableCell>
                   <TableCell>{course.department}</TableCell>
+                  <TableCell>{course.credit_units}</TableCell>
+                  <TableCell>{course.lecturer?.name || 'N/A'}</TableCell>
                   <TableCell>{course.year_level}</TableCell>
+                  <TableCell>{course.semester}</TableCell>
                   <TableCell>
                     {course.is_elective ? (
                       <Badge variant="secondary">Elective</Badge>

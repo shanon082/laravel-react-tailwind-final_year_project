@@ -96,6 +96,8 @@ Route::middleware('auth')->group(function () {
     Route::get('/courses/{id}/lecturers', [CourseController::class, 'courses.lecturers']);
     Route::get('/courses/{id}/timetable', [CourseController::class, 'courses.timetableEntries']);
     Route::get('/courses/{id}/students', [CourseController::class, 'courses.students']);
+    Route::get('/departments', [CourseController::class, 'departmentsList'])->name('departments.list');
+    Route::get('/lecturers', [CourseController::class, 'lecturersList'])->name('lecturers.list');
 
     // Lecturer Routes
     Route::get('/lecturers', [LecturerController::class, 'index'])->name('lecturers');

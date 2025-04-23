@@ -15,10 +15,13 @@ return new class extends Migration
             $table->id();
             $table->string('code')->unique();
             $table->string('name');
-            $table->string('department');
+            $table->string('credit_units');
+            $table->foreignId('department')->constrained('departments')->onDelete('restrict');
+            $table->foreignId('lecturer')->constrained('lecturers')->onDelete('restrict');
             $table->boolean('is_elective')->default(false);
-            $table->string('color_code');
             $table->integer('year_level');
+            $table->integer('semester');
+            $table->string('color_code');
             $table->timestamps();
         });
     }
