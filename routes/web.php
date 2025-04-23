@@ -11,10 +11,6 @@ use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StatsController;
 use App\Http\Controllers\TimetableController;
-use App\Models\Conflict;
-use App\Models\Course;
-use App\Models\Lecturer;
-use App\Models\Room;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -52,7 +48,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
 
     // Faculty API Routes
-    Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties.index');
+    Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
     Route::get('/faculties/{id}', [FacultyController::class, 'show'])->name('faculties.show');
     Route::post('/faculties', [FacultyController::class, 'store'])->name('faculties.store');
     Route::put('/faculties/{id}', [FacultyController::class, 'update'])->name('faculties.update');
@@ -63,7 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/faculties/{id}/students', [FacultyController::class, 'students'])->name('faculties.students');
 
     // Department API Routes
-    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments.index');
+    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
     Route::get('/departments/{id}', [DepartmentController::class, 'show'])->name('departments.show');
     Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
     Route::put('/departments/{id}', [DepartmentController::class, 'update'])->name('departments.update');

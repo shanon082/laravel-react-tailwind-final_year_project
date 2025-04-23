@@ -11,15 +11,36 @@ import {
   ToastTitle,
   ToastDescription,
   ToastClose,
-} from '../components/Toast'; // Adjust the path to your Toast.jsx file
+} from '../components/Toast';
+import PrimaryButton from '@/Components/PrimaryButton';
 import Layout from '@/MajorComponents/layout/layout';
 
 const apiRequest = async (method, url, data = null) => {
-  const response = await axios({ method, url, data });
-  return response.data;
+  try {
+    if (['GET', 'POST', 'PUT', 'DELETE'].includes(method)) {
+      await axios.get('/sanctum/csrf-cookie');
+    }
+    const response = await axios({
+      method,
+      url,
+      data,
+      withCredentials: true,
+    });
+    if (Array.isArray(response.data)) {
+      return response.data;
+    } else if (response.data && Array.isArray(response.data.data)) {
+      return response.data.data;
+    } else {
+      console.warn('API response is not an array:', response.data);
+      return [];
+    }
+  } catch (error) {
+    console.error('API request failed:', error);
+    throw error;
+  }
 };
 
-export default function Faculty({ auth, isAdmin }) {
+export default function Faculty({ auth, isAdmin, faculties: propsFaculties }) {
   const queryClient = useQueryClient();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -30,10 +51,27 @@ export default function Faculty({ auth, isAdmin }) {
   });
   const [toast, setToast] = useState({ open: false, title: '', description: '', variant: 'default' });
 
+  // Clear cache on mount
+  useEffect(() => {
+    queryClient.resetQueries(['faculties']);
+  }, [queryClient]);
+
   // Fetch faculties
-  const { data: faculties = [], isLoading } = useQuery({
+  const { data: faculties = [], isLoading, error } = useQuery({
     queryKey: ['faculties'],
-    queryFn: () => apiRequest('GET', '/faculties'),
+    queryFn: async () => {
+      const data = await apiRequest('GET', '/faculties');
+      console.log('Fetched faculties:', data);
+      if (Array.isArray(data) && data.length > 0) {
+        return data;
+      }
+      throw new Error('Empty or invalid API response');
+    },
+    initialData: propsFaculties,
+    keepPreviousData: true,
+    onError: (error) => {
+      console.error('Query error:', error);
+    },
   });
 
   // Create faculty mutation
@@ -42,7 +80,7 @@ export default function Faculty({ auth, isAdmin }) {
     onSuccess: () => {
       queryClient.invalidateQueries(['faculties']);
       setIsCreateModalOpen(false);
-      setFormData({ name: '', code: ''});
+      setFormData({ name: '', code: '' });
       setToast({
         open: true,
         title: 'Success',
@@ -62,12 +100,12 @@ export default function Faculty({ auth, isAdmin }) {
 
   // Update faculty mutation
   const updateMutation = useMutation({
-    mutationFn: (data) => apiRequest("PUT", `/faculties/${selectedFaculty.id}`, data),
+    mutationFn: (data) => apiRequest('PUT', `/faculties/${selectedFaculty.id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries(['faculties']);
       setIsEditModalOpen(false);
       setSelectedFaculty(null);
-      setFormData({ name: '', code: ''});
+      setFormData({ name: '', code: '' });
       setToast({
         open: true,
         title: 'Success',
@@ -87,7 +125,7 @@ export default function Faculty({ auth, isAdmin }) {
 
   // Delete faculty mutation
   const deleteMutation = useMutation({
-    mutationFn: (id) => apiRequest("DELETE",`/faculties/${id}`),
+    mutationFn: (id) => apiRequest('DELETE', `/faculties/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries(['faculties']);
       setToast({
@@ -147,38 +185,57 @@ export default function Faculty({ auth, isAdmin }) {
                 <div className="flex justify-between items-center mb-6">
                   <h1 className="text-3xl font-bold text-gray-900">Faculties</h1>
                   {isAdmin && (
-                    <button
+                    <PrimaryButton
                       onClick={() => setIsCreateModalOpen(true)}
                       className="flex items-center px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
                     >
                       <Plus className="h-5 w-5 mr-2" />
                       Add Faculty
-                    </button>
+                    </PrimaryButton>
                   )}
                 </div>
 
                 {/* Faculties Table */}
                 <div className="overflow-x-auto">
-                  {isLoading ? (
+                  {error ? (
+                    <p className="text-red-500 text-center py-4">
+                      Error loading faculties: {error.message}
+                    </p>
+                  ) : isLoading && !faculties.length ? (
                     <p className="text-gray-500 text-center py-4">Loading...</p>
-                  ) : faculties.length === 0 ? (
+                  ) : !Array.isArray(faculties) || !faculties.length ? (
                     <p className="text-gray-500 text-center py-4">No faculties found.</p>
                   ) : (
                     <table className="min-w-full divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Code</th>
-                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Name
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Code
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {faculties.map((faculty) => (
-                          <tr key={faculty.id}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{faculty.name}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{faculty.code}</td>
+                        {faculties.map((faculty, index) => (
+                          <tr
+                            key={faculty.id}
+                            className={`transition-all duration-200 ${
+                              index % 2 === 0 ? 'bg-gray-50/50' : 'bg-white'
+                            } hover:bg-blue-50/80 cursor-pointer`}
+                          >
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {faculty.name}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                              {faculty.code}
+                            </td>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <button
+                              {/* <button
                                 onClick={() => viewDetails(faculty.id, 'departments')}
                                 className="text-indigo-600 hover:text-indigo-900 mr-4"
                               >
@@ -201,7 +258,7 @@ export default function Faculty({ auth, isAdmin }) {
                                 className="text-indigo-600 hover:text-indigo-900 mr-4"
                               >
                                 <Users className="h-5 w-5" />
-                              </button>
+                              </button> */}
                               {isAdmin && (
                                 <>
                                   <button
@@ -263,13 +320,13 @@ export default function Faculty({ auth, isAdmin }) {
                     >
                       Cancel
                     </button>
-                    <button
+                    <PrimaryButton
                       type="submit"
                       className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
                       disabled={createMutation.isLoading}
                     >
                       {createMutation.isLoading ? 'Creating...' : 'Create'}
-                    </button>
+                    </PrimaryButton>
                   </div>
                 </form>
               </div>
@@ -310,13 +367,13 @@ export default function Faculty({ auth, isAdmin }) {
                     >
                       Cancel
                     </button>
-                    <button
+                    <PrimaryButton
                       type="submit"
                       className="px-4 py-2 bg-primary text-white rounded-md hover:bg-primary-dark"
                       disabled={updateMutation.isLoading}
                     >
                       {updateMutation.isLoading ? 'Updating...' : 'Update'}
-                    </button>
+                    </PrimaryButton>
                   </div>
                 </form>
               </div>
@@ -332,6 +389,7 @@ export default function Faculty({ auth, isAdmin }) {
           variant={toast.variant}
         >
           <ToastTitle>{toast.title}</ToastTitle>
+          <ToastDescription>{toast.description}</ToastDescription>
           <ToastClose />
         </Toast>
       </ToastProvider>

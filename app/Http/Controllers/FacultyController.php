@@ -15,14 +15,33 @@ class FacultyController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    // public function index()
+    // {
+    //     // Fetch all faculties
+    //     $faculties = Faculty::all();
+        
+    //     return Inertia::render('Faculty', [
+    //         'faculties' => $faculties,
+    //         'isAdmin' => Auth::user()->isAdmin(), // Pass admin status for UI permissions
+    //     ]);
+    // }
+
+    public function index(Request $request)
     {
-        // Fetch all faculties
+        \Log::info('Fetching faculties');
         $faculties = Faculty::all();
-        return Inertia::render('Faculty', [
-            'faculties' => $faculties,
-            'isAdmin' => Auth::user()->isAdmin(), // Pass admin status for UI permissions
-        ]);
+        \Log::info('Faculties:', $faculties->toArray());
+    
+        // Check if the request expects an Inertia response
+        if ($request->header('X-Inertia')) {
+            return Inertia::render('Faculty', [
+                'faculties' => $faculties,
+                'isAdmin' => Auth::user()->isAdmin(),
+            ]);
+        }
+    
+        // Return JSON for API requests
+        return response()->json($faculties);
     }
 
     /**
