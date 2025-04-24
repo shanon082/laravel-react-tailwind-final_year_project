@@ -86,7 +86,7 @@ const QuickStats = () => {
       <StatsCard
         title="Departments"
         value={departmentsData?.totalDepartments || 0}
-        icon={<AlertCircleIcon className="h-6 w-6 text-white" />}
+        icon={<Building className="h-6 w-6 text-white" />}
         iconBgColor="bg-red-500"
         linkText="view all departments"
         linkHref="/departments"

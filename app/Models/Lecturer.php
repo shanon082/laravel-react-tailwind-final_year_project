@@ -30,6 +30,6 @@ class Lecturer extends Model
 
     public function availability()
     {
-        return $this->hasMany(LecturerAvailability::class);
+        return $this->hasMany(LecturerAvailability::class,'lecturer_id');
     }
 }

@@ -29,7 +29,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/total-courses', [StatsController::class, 'totalCourses']);
     Route::get('/total-lecturers', [StatsController::class, 'totalLecturers']);
     Route::get('/available-rooms', [StatsController::class, 'availableRooms']);
-    Route::get('/total-departments', [StatsController::class, 'totalDepartments']);
+    Route::get('/total-departments', [DepartmentController::class, 'totalDepartments']);
 
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -107,7 +107,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/lecturers/{id}', [LecturerController::class, 'destroy'])->name('lecturers.destroy');
     Route::get('/lecturers/{id}/courses', [LecturerController::class, 'lecturers.courses']);
     Route::get('/lecturers/{id}/timetable', [LecturerController::class, 'lecturers.timetableEntries']);
-    Route::get('/lecturers/{id}/availability', [LecturerController::class, 'lecturers.availability']);
+    Route::get('/lecturers/{id}/availability', [LecturerController::class, 'availability'])->name('lecturers.availability');
     Route::post('/lecturers/{lecturerId}/availability', [LecturerController::class, 'storeAvailability'])->name('lecturers.availability.store');
     Route::delete('/lecturers/availability/{id}', [LecturerController::class, 'destroyAvailability'])->name('lecturers.availability.destroy');
 

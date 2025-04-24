@@ -38,7 +38,12 @@ class LecturerController extends Controller
                         'title' => $lecturer->title,
                     ];
                 }),
-                'auth' => auth()->user(),
+                'auth' => [
+            'id' => auth()->user()->id,
+            'name' => auth()->user()->name,
+            'email' => auth()->user()->email,
+            'role' => auth()->user()->isAdmin() ? 'admin' : 'lecturer', // Adjust based on your role logic
+        ],
                 'lecturersResponse' => [
                     'data' => $lecturers->items(),
                     'current_page' => $lecturers->currentPage(),
@@ -200,28 +205,78 @@ class LecturerController extends Controller
     }
 
     public function storeAvailability(Request $request, $lecturerId)
-    {
-        $validated = $request->validate([
-            'day' => 'required|string|in:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY',
-            'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i|after:start_time',
-        ]);
-    
+{
+    // Ensure the lecturer exists
+    $lecturer = Lecturer::findOrFail($lecturerId);
+
+    // Check if user is authorized (admin or the lecturer themselves)
+    $user = Auth::user();
+    if (!$user->isAdmin() && $user->id !== $lecturerId) {
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    $validated = $request->validate([
+        'day' => 'required|string|in:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY',
+        'start_time' => 'required|date_format:H:i',
+        'end_time' => 'required|date_format:H:i|after:start_time',
+    ]);
+
+    try {
+        DB::beginTransaction();
+
         $availability = LecturerAvailability::create([
             'lecturer_id' => $lecturerId,
             'day' => $validated['day'],
             'start_time' => $validated['start_time'],
             'end_time' => $validated['end_time'],
         ]);
-    
-        return response()->json($availability, 201);
-    }
 
-    public function destroyAvailability($id)
+        DB::commit();
+
+        // Check if the request is an Inertia request
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->with('success', 'Availability added successfully.');
+        }
+
+        // Fallback for non-Inertia requests (e.g., API calls)
+        return response()->json($availability, 201);
+    } catch (\Exception $e) {
+        DB::rollBack();
+
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->withErrors(['error' => 'Error creating availability: ' . $e->getMessage()]);
+        }
+
+        return response()->json(['message' => 'Error creating availability: ' . $e->getMessage()], 500);
+    }
+}
+
+public function destroyAvailability(Request $request, $id)
 {
     $availability = LecturerAvailability::findOrFail($id);
-    $availability->delete();
-    
-    return response()->json(['message' => 'Availability deleted successfully']);
+
+    // Check if user is authorized
+    $user = Auth::user();
+    if (!$user->isAdmin() && $user->id !== $availability->lecturer_id) {
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->withErrors(['error' => 'Unauthorized']);
+        }
+        return response()->json(['message' => 'Unauthorized'], 403);
+    }
+
+    try {
+        $availability->delete();
+
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->with('success', 'Availability deleted successfully');
+        }
+
+        return response()->json(['message' => 'Availability deleted successfully']);
+    } catch (\Exception $e) {
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->withErrors(['error' => 'Error deleting availability: ' . $e->getMessage()]);
+        }
+        return response()->json(['message' => 'Error deleting availability: ' . $e->getMessage()], 500);
+    }
 }
 }

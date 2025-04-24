@@ -6,8 +6,6 @@ use App\Models\Course;
 use App\Models\Department;
 use App\Models\Lecturer;
 use App\Models\Room;
-use App\Models\Timetable; // Assuming you have a Timetable model for conflicts
-use Illuminate\Http\Request;
 
 class StatsController extends Controller
 {

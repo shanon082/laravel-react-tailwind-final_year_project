@@ -9,15 +9,11 @@ use Inertia\Inertia;
 
 class DepartmentController extends Controller
 {
-    // public function index()
-    // {
-    //     // Fetch all departments with their faculties
-    //     $departments = Department::with('faculty')->get();
-    //     return Inertia::render('Department', [
-    //         'departments' => $departments,
-    //         'isAdmin' => Auth::user()->isAdmin(), // Pass admin status for UI permissions
-    //     ]);
-    // }
+    public function totalDepartments(Request $request)
+    {
+        $count = Department::count();
+        return response()->json(['totalDepartments' => $count]);
+    }
 
     public function index(Request $request)
     {
@@ -34,19 +30,23 @@ class DepartmentController extends Controller
                         'id' => $department->id,
                         'name' => $department->name,
                         'code' => $department->code,
-                        'faculty' => $department->faculty ? [
-                            'id' => $department->faculty->id,
-                            'name' => $department->faculty->name,
-                        ] : null,
+                        // 'faculty' => $department->faculty ? [
+                        //     'id' => $department->faculty->id,
+                        //     'name' => $department->faculty->name,
+                        // ] : null,
                     ];
                 }),
                 'auth' => auth()->user(),
-                'isAdmin' => Auth::user()->isAdmin(),
             ]);
         }
     
         // Return JSON for API requests
-        return response()->json($departments);
+        return response()->json([
+            'data' => $departments->items(),
+            'current_page' => $departments->currentPage(),
+            'last_page' => $departments->lastPage(),
+            'total' => $departments->total(),
+        ]);
     }
 
     public function store(Request $request)
