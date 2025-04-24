@@ -56,7 +56,7 @@ const CourseForm = ({ courseId, onClose }) => {
   } = useQuery({
     queryKey: ["lecturers"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/lecturers`);
+      const response = await apiRequest("GET", `/lecturers/list`);
       if (!response.ok) {
         throw new Error(`Failed to fetch lecturers: ${response.statusText}`);
       }
@@ -446,7 +446,7 @@ const CourseForm = ({ courseId, onClose }) => {
                                   key={lecturer.id}
                                   value={lecturer.id.toString()}
                                 >
-                                  {lecturer.name}
+                                  {lecturer.fullName} {/* Changed from lecturer.name to lecturer.fullName */}
                                 </SelectItem>
                               ))}
                             </SelectContent>

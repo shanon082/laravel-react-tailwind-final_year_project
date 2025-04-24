@@ -84,9 +84,9 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                 <TableRow key={course.id}>
                   <TableCell className="font-medium">{course.code}</TableCell>
                   <TableCell>{course.name}</TableCell>
-                  <TableCell>{course.department}</TableCell>
+                  <TableCell>{course.department?.name || "N/A"}</TableCell>
                   <TableCell>{course.credit_units}</TableCell>
-                  <TableCell>{course.lecturer?.name || 'N/A'}</TableCell>
+                  <TableCell>{course.lecturer?.fullName || "N/A"}</TableCell>
                   <TableCell>{course.year_level}</TableCell>
                   <TableCell>{course.semester}</TableCell>
                   <TableCell>
