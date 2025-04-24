@@ -13,17 +13,10 @@ import {
   TableRow,
 } from "../../Components/table";
 import { Button } from "../../Components/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../Components/dropdown-menu";
 import { Badge } from "../../Components/badge";
-import { Edit, MoreHorizontal, Loader2 } from "lucide-react";
+import { Edit } from "lucide-react";
 import { router } from "@inertiajs/react";
-import { Tooltip } from "@radix-ui/react-tooltip";
-import { TooltipContent, TooltipProvider, TooltipTrigger } from "@/Components/ToolTip";
+import { TooltipProvider, Tooltip, TooltipTrigger, TooltipContent } from "@/Components/ToolTip";
 
 const CourseList = ({ onEditCourse, coursesResponse }) => {
   console.log("coursesResponse:", coursesResponse);
@@ -44,13 +37,17 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
 
   if (!courses || courses.length === 0) {
     return (
-      <Card>
+      <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle>Courses</CardTitle>
+          <CardTitle className="text-lg font-semibold text-gray-900">
+            Courses
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="text-center py-8">
-            <p className="text-gray-500">No courses found. Add a course to get started.</p>
+            <p className="text-gray-500 text-sm">
+              No courses found. Add a course to get started.
+            </p>
           </div>
         </CardContent>
       </Card>
@@ -58,48 +55,69 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
   }
 
   return (
-    <Card>
+    <Card className="shadow-sm">
       <CardHeader>
-        <CardTitle>Courses ({total})</CardTitle>
+        <CardTitle className="text-lg font-semibold text-gray-900">
+          Courses ({total})
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
-              <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Credit Units</TableHead>
-                <TableHead>Lecturer</TableHead>
-                <TableHead>Year</TableHead>
-                <TableHead>Semester</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="w-12">Color</TableHead>
-                {onEditCourse && <TableHead className="w-14">Action</TableHead>}
+              <TableRow className="bg-gray-50">
+                <TableHead className="text-gray-700 font-semibold">Code</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Name</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Department</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Credit Units</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Lecturer</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Year</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Semester</TableHead>
+                <TableHead className="text-gray-700 font-semibold">Type</TableHead>
+                <TableHead className="text-gray-700 font-semibold w-12">Color</TableHead>
+                {onEditCourse && (
+                  <TableHead className="text-gray-700 font-semibold w-14">
+                    Action
+                  </TableHead>
+                )}
               </TableRow>
             </TableHeader>
             <TableBody>
               {courses.map((course) => (
-                <TableRow key={course.id}>
-                  <TableCell className="font-medium">{course.code}</TableCell>
-                  <TableCell>{course.name}</TableCell>
-                  <TableCell>{course.department?.name || "N/A"}</TableCell>
-                  <TableCell>{course.credit_units}</TableCell>
-                  <TableCell>{course.lecturer?.fullName || "N/A"}</TableCell>
-                  <TableCell>{course.year_level}</TableCell>
-                  <TableCell>{course.semester}</TableCell>
+                <TableRow
+                  key={course.id}
+                  className="hover:bg-gray-50 transition-colors duration-150"
+                >
+                  <TableCell className="font-medium text-gray-900">
+                    {course.code}
+                  </TableCell>
+                  <TableCell className="text-gray-700">{course.name}</TableCell>
+                  <TableCell className="text-gray-700">
+                    {course.department?.name || "N/A"}
+                  </TableCell>
+                  <TableCell className="text-gray-700">{course.credit_units}</TableCell>
+                  <TableCell className="text-gray-700">
+                    {course.lecturer?.fullName || "N/A"}
+                  </TableCell>
+                  <TableCell className="text-gray-700">{course.year_level}</TableCell>
+                  <TableCell className="text-gray-700">{course.semester}</TableCell>
                   <TableCell>
                     {course.is_elective ? (
-                      <Badge variant="secondary">Elective</Badge>
+                      <Badge
+                        variant="secondary"
+                        className="bg-blue-100 text-blue-800"
+                      >
+                        Elective
+                      </Badge>
                     ) : (
-                      <Badge>Core</Badge>
+                      <Badge className="bg-green-100 text-green-800">Core</Badge>
                     )}
                   </TableCell>
                   <TableCell>
                     <div
-                      className="w-6 h-6 rounded-full"
+                      className="w-6 h-6 rounded-full border border-gray-200"
                       style={{ backgroundColor: course.color_code }}
+                      aria-label={`Course color: ${course.color_code}`}
                     ></div>
                   </TableCell>
                   {onEditCourse && (
@@ -111,13 +129,14 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
                               variant="ghost"
                               size="icon"
                               onClick={() => onEditCourse(course.id)}
-                              className="text-blue-500 hover:bg-blue-100 rounded-full"
+                              className="text-blue-600 hover:bg-blue-100 rounded-full transition-colors duration-200"
+                              aria-label={`Edit course ${course.code}`}
                             >
                               <Edit className="h-4 w-4" />
                             </Button>
                           </TooltipTrigger>
                           <TooltipContent>
-                            <p>Edit</p>
+                            <p>Edit Course</p>
                           </TooltipContent>
                         </Tooltip>
                       </TooltipProvider>
@@ -129,19 +148,21 @@ const CourseList = ({ onEditCourse, coursesResponse }) => {
           </Table>
         </div>
         {lastPage > 1 && (
-          <div className="flex justify-between mt-4">
+          <div className="flex justify-between items-center mt-4">
             <Button
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(currentPage - 1)}
+              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
             >
               Previous
             </Button>
-            <span>
+            <span className="text-sm text-gray-600">
               Page {currentPage} of {lastPage}
             </span>
             <Button
               disabled={currentPage === lastPage}
               onClick={() => setCurrentPage(currentPage + 1)}
+              className="bg-white text-gray-700 border border-gray-300 hover:bg-gray-100 disabled:opacity-50"
             >
               Next
             </Button>

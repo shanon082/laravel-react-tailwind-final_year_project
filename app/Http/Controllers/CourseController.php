@@ -12,62 +12,48 @@ use Illuminate\Support\Facades\Log;
 class CourseController extends Controller
 {
     public function index(Request $request)
-    {
-        $query = Course::query();
+{
+    $query = Course::query();
 
-        if ($request->has('search') && $request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
-        }
-        if ($request->has('department') && $request->department) {
-            $query->where('department', $request->department);
-        }
-        if ($request->has('year_level') && $request->yearLevel) {
-            $query->where('year_level', $request->yearLevel);
-        }
+    if ($request->has('search') && $request->search) {
+        $query->where('name', 'like', '%' . $request->search . '%');
+    }
+    if ($request->has('department') && $request->department) {
+        $query->where('department', $request->department);
+    }
+    if ($request->has('year_level') && $request->yearLevel) {
+        $query->where('year_level', $request->yearLevel);
+    }
 
-        $perPage = $request->input('per_page', 10);
-        $courses = $query->select('id', 'code', 'name', 'credit_units', 'department', 'lecturer', 'is_elective', 'color_code', 'year_level', 'semester')
-                         ->with(['lecturer:id,fullName', 'department:id,name'])
-                         ->paginate($perPage);
+    $perPage = $request->input('per_page', 10);
+    $courses = $query->select('id', 'code', 'name', 'credit_units', 'department', 'lecturer', 'is_elective', 'color_code', 'year_level', 'semester')
+                     ->with(['lecturer:id,fullName', 'department:id,name'])
+                     ->paginate($perPage);
 
-        if ($request->header('X-Inertia')) {
-            return Inertia::render('Courses', [
-                'courses' => Course::all()->map(function ($course) {
-                    return [
-                        'id' => $course->id,
-                        'code' => $course->code,
-                        'name' => $course->name,
-                        'credit_units' => $course->credit_units,
-                        'department' => $course->department()->first(['id', 'name']),
-                        'lecturer' => $course->lecturer()->first(['id', 'fullName']),
-                        'is_elective' => $course->is_elective,
-                        'color_code' => $course->color_code,
-                        'year_level' => $course->year_level,
-                        'semester' => $course->semester,
-                    ];
-                }),
-                'auth' => auth()->user(),
-                'coursesResponse' => [
-                    'data' => $courses->items(),
-                    'current_page' => $courses->currentPage(),
-                    'last_page' => $courses->lastPage(),
-                    'total' => $courses->total(),
-                ],
-                'filters' => [
-                    'search' => $request->search ?? '',
-                    'department' => $request->department ?? '',
-                    'yearLevel' => $request->yearLevel ?? '',
-                ],
-            ]);
-        }
-
-        return response()->json([
-            'data' => $courses->items(),
-            'current_page' => $courses->currentPage(),
-            'last_page' => $courses->lastPage(),
-            'total' => $courses->total(),
+    if ($request->header('X-Inertia')) {
+        return Inertia::render('Courses', [
+            'coursesResponse' => [
+                'data' => $courses->items(),
+                'current_page' => $courses->currentPage(),
+                'last_page' => $courses->lastPage(),
+                'total' => $courses->total(),
+            ],
+            'auth' => auth()->user(),
+            'filters' => [
+                'search' => $request->search ?? '',
+                'department' => $request->department ?? '',
+                'yearLevel' => $request->yearLevel ?? '',
+            ],
         ]);
     }
+
+    return response()->json([
+        'data' => $courses->items(),
+        'current_page' => $courses->currentPage(),
+        'last_page' => $courses->lastPage(),
+        'total' => $courses->total(),
+    ]);
+}
 
     public function show($id)
     {
