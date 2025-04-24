@@ -30,10 +30,10 @@ class DepartmentController extends Controller
                         'id' => $department->id,
                         'name' => $department->name,
                         'code' => $department->code,
-                        // 'faculty' => $department->faculty ? [
-                        //     'id' => $department->faculty->id,
-                        //     'name' => $department->faculty->name,
-                        // ] : null,
+                        'faculty' => $department->faculty ? [
+                            'id' => $department->faculty->id,
+                            'name' => $department->faculty->name,
+                        ] : null,
                     ];
                 }),
                 'auth' => auth()->user(),

@@ -25,6 +25,11 @@ import { z } from "zod";
 import LecturerList from "../MajorComponents/lecturers/lecturer-list";
 import AvailabilityTable from "../MajorComponents/lecturers/availability-table";
 import DangerButton from "@/Components/DangerButton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/select";
+import { RefreshCw } from "lucide-react";
+
+// Title options for the dropdown
+const titleOptions = ["Professor", "Lecturer", "Assistant Lecturer", "Associate Professor"];
 
 // Validation schema for AddLecturerDialog
 const lecturerFormSchema = z.object({
@@ -32,7 +37,7 @@ const lecturerFormSchema = z.object({
   fullName: z.string().min(3, { message: "Full name must be at least 3 characters" }),
   email: z.string().email({ message: "Invalid email address" }),
   department: z.string().min(1, { message: "Department is required" }),
-  title: z.string().min(1, { message: "title is required" }),
+  title: z.enum(titleOptions, { message: "Please select a valid title" }),
   contact: z
     .string()
     .regex(/^\+?\d{9,15}$/, { message: "Invalid phone number (e.g., +256123456789)" }),
@@ -49,6 +54,29 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
     queryKey: ["/lecturers", lecturerId],
     queryFn: () => apiRequest("GET", `/lecturers/${lecturerId}`),
     enabled: isEditMode,
+  });
+
+  // Fetch departments
+  const {
+    data: departments,
+    isLoading: isDepartmentsLoading,
+    error: departmentsError,
+    refetch: refetchDepartments,
+  } = useQuery({
+    queryKey: ["/departments"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/departments");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch departments: ${response.statusText}`);
+      }
+      const departmentsData = await response.json();
+      console.log("Departments data fetched:", departmentsData);
+      if (!Array.isArray(departmentsData)) {
+        console.warn("Departments data is not an array:", departmentsData);
+        return [];
+      }
+      return departmentsData;
+    },
   });
 
   // Initialize react-hook-form
@@ -71,7 +99,7 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
         fullName: lecturer.fullName,
         email: lecturer.email,
         title: lecturer.title,
-        department: lecturer.department,        
+        department: lecturer.department,
         contact: lecturer.contact,
       });
     }
@@ -101,7 +129,7 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
                   title: "Lecturer Updated",
                   description: "The lecturer has been successfully updated.",
                   className: "bg-green-50 border-green-200 text-green-800",
-                  icon: <CheckCircle2 className="h-5 w-5" />,
+                  icon: <CheckCircle className="h-5 w-5" />,
                 });
                 setShowSuccess(false);
                 setIsSubmitting(false);
@@ -182,18 +210,8 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
     register,
     handleSubmit,
     formState: { errors },
-    reset,
-  } = useForm({
-    resolver: zodResolver(lecturerFormSchema),
-    defaultValues: {
-      username: "",
-      fullName: "",
-      email: "",
-      department: "",
-      title: "",
-      contact: "",
-    },
-  });
+    setValue,
+  } = form;
 
   return (
     <DialogContent
@@ -201,9 +219,11 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
       className="sm:max-w-md md:max-w-lg bg-white shadow-lg rounded-lg animate-fade-in"
     >
       <DialogHeader>
-        <DialogTitle className="text-xl font-semibold text-gray-900">Add New Lecturer</DialogTitle>
+        <DialogTitle className="text-xl font-semibold text-gray-900">
+          {isEditMode ? "Edit Lecturer" : "Add New Lecturer"}
+        </DialogTitle>
         <DialogDescription className="text-sm text-gray-600">
-          Complete the form below to add a new lecturer to the system.
+          Complete the form below to {isEditMode ? "edit the lecturer's details" : "add a new lecturer to the system"}.
         </DialogDescription>
       </DialogHeader>
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -214,38 +234,44 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
               label: "User Name",
               type: "text",
               placeholder: "e.g., John",
+              component: "input",
             },
             {
               id: "fullName",
               label: "Full Name",
               type: "text",
               placeholder: "e.g., Dr. John Smith",
+              component: "input",
             },
             {
               id: "email",
               label: "Email",
               type: "email",
               placeholder: "e.g., john.smith@sun.ac.ug",
+              component: "input",
             },
             {
               id: "department",
               label: "Department",
-              type: "text",
-              placeholder: "e.g., Computer Science",
+              component: "select",
             },
             {
               id: "title",
-              label: "title",
-              type: "text",
-              placeholder: "e.g., Prof or Lecturer",
+              label: "Title",
+              component: "select",
+              options: titleOptions.map((title) => ({
+                value: title,
+                label: title,
+              })),
             },
             {
               id: "contact",
               label: "Contact",
               type: "tel",
               placeholder: "e.g., +256 123 456 789",
+              component: "input",
             },
-          ].map(({ id, label, type, placeholder }) => (
+          ].map(({ id, label, type, placeholder, component, options }) => (
             <div
               key={id}
               className="grid grid-cols-1 md:grid-cols-4 items-start md:items-center gap-2 md:gap-4"
@@ -254,15 +280,71 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
                 {label}
               </Label>
               <div className="col-span-1 md:col-span-3">
-                <Input
-                  id={id}
-                  type={type}
-                  placeholder={placeholder}
-                  className={`h-10 border-gray-300 focus:ring-blue-500 focus:border-blue-500 ${errors[id] ? "border-red-500" : ""}`}
-                  {...register(id)}
-                  aria-invalid={!!errors[id]}
-                  aria-describedby={errors[id] ? `${id}-error` : undefined}
-                />
+                {component === "input" ? (
+                  <Input
+                    id={id}
+                    type={type}
+                    placeholder={placeholder}
+                    className={`h-10 border-gray-300 focus:ring-blue-500 focus:border-blue-500 ${errors[id] ? "border-red-500" : ""}`}
+                    {...register(id)}
+                    aria-invalid={!!errors[id]}
+                    aria-describedby={errors[id] ? `${id}-error` : undefined}
+                  />
+                ) : (
+                  <Select
+                    onValueChange={(value) => setValue(id, value)}
+                    value={form.watch(id)}
+                    disabled={id === "department" && (isDepartmentsLoading || departmentsError)}
+                  >
+                    <SelectTrigger
+                      className={`h-10 border-gray-300 focus:ring-blue-500 focus:border-blue-500 ${errors[id] ? "border-red-500" : ""}`}
+                    >
+                      <SelectValue
+                        placeholder={
+                          id === "department" && isDepartmentsLoading
+                            ? "Loading departments..."
+                            : placeholder || `Select a ${id}`
+                        }
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {id === "department" ? (
+                        departmentsError ? (
+                          <div className="flex items-center space-x-2 p-2">
+                            <span className="text-red-600">
+                              Error: {departmentsError.message}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => refetchDepartments()}
+                              title="Retry"
+                            >
+                              <RefreshCw className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : Array.isArray(departments) && departments.length > 0 ? (
+                          departments.map((department) => (
+                            <SelectItem
+                              key={department.id}
+                              value={department.name}
+                            >
+                              {department.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <span className="p-2 text-gray-500">No departments available</span>
+                        )
+                      ) : (
+                        options?.map((option) => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                )}
                 {errors[id] && (
                   <p id={`${id}-error`} className="mt-1 text-sm text-red-600 font-medium">
                     {errors[id].message}
@@ -285,15 +367,15 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
           <Button
             type="submit"
             className="w-full sm:w-auto px-6 py-2 bg-blue-600 hover:bg-blue-700 transition-colors duration-200"
-            disabled={isSubmitting}
+            disabled={isSubmitting || isDepartmentsLoading || departmentsError}
           >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding...
+                {isEditMode ? "Updating..." : "Adding..."}
               </>
             ) : (
-              "Add Lecturer"
+              isEditMode ? "Update Lecturer" : "Add Lecturer"
             )}
           </Button>
         </DialogFooter>
