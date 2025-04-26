@@ -10,26 +10,15 @@ import { UserRole } from "../types";
 import { Head } from "@inertiajs/react";
 import { Input } from "../Components/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../Components/Select";
-import { useQuery } from "@tanstack/react-query";
-import { apiRequest } from "../lib/queryClient";
 
 const Rooms = ({ auth, roomsResponse, filters }) => {
   const { user } = useAuth();
   const [isAddingRoom, setIsAddingRoom] = useState(false);
-  const [editingRoomId, setEditingRoomId] = useState(null);
+  const [editingRoom, setEditingRoom] = useState(null); // Store the full room object
   const [searchQuery, setSearchQuery] = useState(filters.search);
   const [filterType, setFilterType] = useState(filters.type || "all");
   const [filterBuilding, setFilterBuilding] = useState(filters.building || "all");
   const [buildings, setBuildings] = useState(roomsResponse.buildings);
-
-  // Pre-fetch room data for editing
-  const { data: editingRoomData } = useQuery({
-    queryKey: ["/rooms", editingRoomId],
-    queryFn: () =>{ apiRequest("GET", `/rooms/${editingRoomId}`);
-    return response.json(); 
-  },
-    enabled: !!editingRoomId,
-  });
 
   useEffect(() => {
     const handleBuildingsUpdate = (event) => {
@@ -43,7 +32,7 @@ const Rooms = ({ auth, roomsResponse, filters }) => {
   // Update URL with filters
   useEffect(() => {
     router.get(
-      route('rooms'),
+      route("rooms"),
       {
         search: searchQuery,
         type: filterType === "all" ? "" : filterType,
@@ -63,17 +52,18 @@ const Rooms = ({ auth, roomsResponse, filters }) => {
 
   const handleAddClick = () => {
     setIsAddingRoom(true);
-    setEditingRoomId(null);
+    setEditingRoom(null);
   };
 
   const handleEditClick = (roomId) => {
-    setEditingRoomId(roomId);
+    const room = roomsResponse.data.find((r) => r.id === roomId);
+    setEditingRoom(room);
     setIsAddingRoom(false);
   };
 
   const handleFormClose = () => {
     setIsAddingRoom(false);
-    setEditingRoomId(null);
+    setEditingRoom(null);
   };
 
   return (
@@ -147,12 +137,12 @@ const Rooms = ({ auth, roomsResponse, filters }) => {
           />
         </div>
 
-        {(isAddingRoom || editingRoomId) && isAdmin && (
+        {(isAddingRoom || editingRoom) && isAdmin && (
           <RoomForm
-            roomId={editingRoomId}
+            roomId={editingRoom?.id || null}
             onClose={handleFormClose}
-            isOpen={isAddingRoom || !!editingRoomId}
-            initialData={editingRoomData}
+            isOpen={isAddingRoom || !!editingRoom}
+            initialData={editingRoom}
           />
         )}
       </div>

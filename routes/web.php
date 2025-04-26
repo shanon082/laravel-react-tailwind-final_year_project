@@ -6,6 +6,7 @@ use App\Http\Controllers\CourseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FeedbackController;
 use App\Http\Controllers\LecturerController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SettingsController;
@@ -29,7 +30,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/total-courses', [StatsController::class, 'totalCourses']);
     Route::get('/total-lecturers', [StatsController::class, 'totalLecturers']);
     Route::get('/available-rooms', [StatsController::class, 'availableRooms']);
-    Route::get('/total-departments', [DepartmentController::class, 'totalDepartments']);
+    Route::get('/total-departments', [StatsController::class, 'totalDepartments']);
 
     // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
@@ -119,6 +120,11 @@ Route::middleware('auth')->group(function () {
     Route::delete('/timetable/{id}', [TimetableController::class, 'timetables.destroy']);
     Route::get('/timetable/{id}/conflicts', [TimetableController::class, 'timetables.conflicts']);
     Route::post('/timetable/generate', [TimetableController::class, 'timetables.generate']);
+
+    // Notification Routes
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 });
 
-require __DIR__.'/auth.php';
+require __DIR__ . '/auth.php';

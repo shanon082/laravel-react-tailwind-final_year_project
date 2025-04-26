@@ -2,7 +2,6 @@ import { useState } from "react";
 import Layout from "../MajorComponents/layout/layout";
 import CourseList from "../MajorComponents/courses/course-list";
 import CourseForm from "../MajorComponents/courses/course-form";
-import Modal from "../components/modal";
 import { Button } from "../components/button";
 import { Plus, Filter } from "lucide-react";
 import { useAuth } from "../hooks/use-auth";
@@ -28,6 +27,26 @@ import { Loader2 } from "lucide-react";
 import ErrorBoundary from "../Components/ErrorBoundary";
 import SecondaryButton from "@/Components/SecondaryButton";
 
+// Fallback Modal component (replace with your actual Modal if different)
+const Modal = ({ isOpen, onClose, children }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+      <div className="bg-white rounded-lg shadow-lg max-w-lg w-full p-6 relative">
+        <button
+          onClick={onClose}
+          className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+          aria-label="Close modal"
+        >
+          &times;
+        </button>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 const Courses = ({ auth, coursesResponse, filters }) => {
   console.log("Courses props:", { auth, coursesResponse, filters });
   const { user } = useAuth();
@@ -43,8 +62,8 @@ const Courses = ({ auth, coursesResponse, filters }) => {
   });
 
   const isAdmin = user?.role === UserRole.ADMIN;
+  console.log("User role:", user?.role, "IsAdmin:", isAdmin);
 
-  // Fetch departments for the filter dropdown
   const { data: departments, isLoading: isDepartmentsLoading } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
@@ -58,18 +77,22 @@ const Courses = ({ auth, coursesResponse, filters }) => {
   });
 
   const openModal = (courseId = null, isEditMode = false) => {
+    console.log("Opening modal:", { courseId, isEditMode });
     setModalState({ isOpen: true, courseId, isEditMode });
   };
 
   const closeModal = () => {
+    console.log("Closing modal");
     setModalState({ isOpen: false, courseId: null, isEditMode: false });
   };
 
   const handleAddClick = () => {
+    console.log("Add Course button clicked");
     openModal(null, false);
   };
 
   const handleEditClick = (courseId) => {
+    console.log("Edit Course button clicked for course:", courseId);
     openModal(courseId, true);
   };
 
@@ -190,10 +213,7 @@ const Courses = ({ auth, coursesResponse, filters }) => {
                       <SelectContent>
                         <SelectItem value="all">All Departments</SelectItem>
                         {departments?.map((dept) => (
-                          <SelectItem
-                            key={dept.id}
-                            value={dept.id.toString()}
-                          >
+                          <SelectItem key={dept.id} value={dept.id.toString()}>
                             {dept.name}
                           </SelectItem>
                         ))}
@@ -242,6 +262,15 @@ const Courses = ({ auth, coursesResponse, filters }) => {
         </ErrorBoundary>
 
         <ErrorBoundary>
+          {modalState.isOpen && (
+            <Modal isOpen={modalState.isOpen} onClose={closeModal}>
+              <CourseForm
+                courseId={modalState.courseId}
+                isEditMode={modalState.isEditMode}
+                onClose={closeModal}
+              />
+            </Modal>
+          )}
           <CourseList
             onEditCourse={isAdmin ? handleEditClick : undefined}
             coursesResponse={coursesResponse}

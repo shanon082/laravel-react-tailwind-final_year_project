@@ -9,22 +9,13 @@ use Inertia\Inertia;
 
 class DepartmentController extends Controller
 {
-    public function totalDepartments(Request $request)
-    {
-        $count = Department::count();
-        return response()->json(['totalDepartments' => $count]);
-    }
-
     public function index(Request $request)
     {
-        \Log::info('Fetching Departments');
         $departments = Department::with('faculty')->get();
-        \Log::info('Departments fetched successfully');
-        \Log::info('Departments:', $departments->toArray());
     
         // Check if the request expects an Inertia response
         if ($request->header('X-Inertia')) {
-            return Inertia::render('Department', [
+            return Inertia::render('Departments', [
                 'departments' => $departments->map(function ($department) {
                     return [
                         'id' => $department->id,

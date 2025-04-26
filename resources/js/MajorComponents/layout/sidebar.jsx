@@ -62,8 +62,8 @@ const Sidebar = () => {
       tooltip: "View faculty",
     },
     {
-      name: "Department",
-      path: "/department",
+      name: "Departments",
+      path: "/departments",
       icon: <Activity className="h-5 w-5" />,
       roles: [UserRole.ADMIN],
       tooltip: "View department",

@@ -12,6 +12,8 @@ import { Day } from "../../types";
 import { Label } from "../../Components/Label";
 import { useQuery } from "@tanstack/react-query";
 import SecondaryButton from "@/Components/SecondaryButton";
+import { apiRequest } from "../../lib/queryClient"; // Adjusted path based on your structure
+import { Loader2 } from "lucide-react";
 
 const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   const [department, setDepartment] = useState(defaultFilters.department);
@@ -21,26 +23,75 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   const [day, setDay] = useState(defaultFilters.day);
   const [viewType, setViewType] = useState(defaultFilters.viewType || "week");
 
-  // Fetch lecturers for dropdown
-  const { data: lecturers } = useQuery({
-    queryKey: ["/lecturers"],
+  // Fetch departments
+  const {
+    data: departments,
+    isLoading: isDepartmentsLoading,
+    error: departmentsError,
+  } = useQuery({
+    queryKey: ["departments"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/departments");
+      if (!response.ok) {
+        console.error("Departments fetch error:", response.status, response.statusText);
+        throw new Error(`Failed to fetch departments: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log("Departments data:", data); // Debugging
+      return Array.isArray(data) ? data : data.data || [];
+    },
   });
 
-  // Fetch rooms for dropdown
-  const { data: rooms } = useQuery({
-    queryKey: ["/rooms"],
+  // Fetch lecturers
+  const {
+    data: lecturers,
+    isLoading: isLecturersLoading,
+    error: lecturersError,
+  } = useQuery({
+    queryKey: ["lecturers"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/lecturers");
+      if (!response.ok) {
+        console.error("Lecturers fetch error:", response.status, response.statusText);
+        throw new Error(`Failed to fetch lecturers: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log("Lecturers data:", data); // Debugging
+      return Array.isArray(data) ? data : data.data || [];
+    },
+  });
+
+  // Fetch rooms
+  const {
+    data: rooms,
+    isLoading: isRoomsLoading,
+    error: roomsError,
+  } = useQuery({
+    queryKey: ["rooms"],
+    queryFn: async () => {
+      const response = await apiRequest("GET", "/rooms");
+      if (!response.ok) {
+        console.error("Rooms fetch error:", response.status, response.statusText);
+        throw new Error(`Failed to fetch rooms: ${response.statusText}`);
+      }
+      const data = await response.json();
+      console.log("Rooms data:", data); // Debugging
+      return Array.isArray(data) ? data : data.data || [];
+    },
   });
 
   // Apply filters when the form is submitted
   const applyFilters = () => {
-    onFilterChange({
-      department,
-      level,
-      lecturer,
-      room,
-      day,
+    const filters = {
+      department: department === "all" ? undefined : department,
+      level: level,
+      lecturer: lecturer,
+      room: room,
+      day: day === "all" ? undefined : day,
       viewType,
-    });
+    };
+    console.log("Applying filters:", filters);
+    onFilterChange(filters);
   };
 
   // Reset all filters
@@ -57,7 +108,7 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
     });
   };
 
-  // Apply filters when default filters change
+  // Sync with default filters when they change
   useEffect(() => {
     setDepartment(defaultFilters.department);
     setLevel(defaultFilters.level);
@@ -67,6 +118,12 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
     setViewType(defaultFilters.viewType || "week");
   }, [defaultFilters]);
 
+  // Combine errors for display
+  const errorMessage =
+    departmentsError || lecturersError || roomsError
+      ? "Failed to load filter options. Please try again."
+      : null;
+
   return (
     <Card className="bg-white shadow rounded-lg mb-8">
       <CardContent className="px-4 py-5 sm:p-6">
@@ -74,34 +131,46 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
           Timetable Filters
         </h2>
 
+        {errorMessage && (
+          <div className="mb-4 text-red-600 text-sm">{errorMessage}</div>
+        )}
+
         <div className="grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
           <div className="sm:col-span-2">
             <Label htmlFor="department">Department</Label>
-            <Select
-              value={department}
-              onValueChange={(value) => setDepartment(value)}
-            >
-              <SelectTrigger id="department" className="mt-1">
-                <SelectValue placeholder="All Departments" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Departments</SelectItem>
-                <SelectItem value="Computer Science">Computer Science</SelectItem>
-                <SelectItem value="Business Administration">
-                  Business Administration
-                </SelectItem>
-                <SelectItem value="Engineering">Engineering</SelectItem>
-                <SelectItem value="Medicine">Medicine</SelectItem>
-              </SelectContent>
-            </Select>
+            {isDepartmentsLoading ? (
+              <div className="flex items-center space-x-2 mt-1">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading departments...</span>
+              </div>
+            ) : (
+              <Select
+                value={department || "all"}
+                onValueChange={(value) =>
+                  setDepartment(value === "all" ? undefined : value)
+                }
+              >
+                <SelectTrigger id="department" className="mt-1">
+                  <SelectValue placeholder="All Departments" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Departments</SelectItem>
+                  {departments?.map((dept) => (
+                    <SelectItem key={dept.id} value={dept.id.toString()}>
+                      {dept.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="sm:col-span-2">
             <Label htmlFor="course-level">Level</Label>
             <Select
-              value={level?.toString()}
+              value={level?.toString() || "all"}
               onValueChange={(value) =>
-                setLevel(value ? parseInt(value) : undefined)
+                setLevel(value === "all" ? undefined : parseInt(value))
               }
             >
               <SelectTrigger id="course-level" className="mt-1">
@@ -119,58 +188,74 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
 
           <div className="sm:col-span-2">
             <Label htmlFor="lecturer">Lecturer</Label>
-            <Select
-              value={lecturer?.toString()}
-              onValueChange={(value) =>
-                setLecturer(value ? parseInt(value) : undefined)
-              }
-            >
-              <SelectTrigger id="lecturer" className="mt-1">
-                <SelectValue placeholder="All Lecturers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Lecturers</SelectItem>
-                {lecturers?.map((lecturer) => (
-                  <SelectItem
-                    key={lecturer.id}
-                    value={lecturer.id.toString()}
-                  >
-                    {lecturer.userDetails?.fullName || `Lecturer ${lecturer.id}`}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isLecturersLoading ? (
+              <div className="flex items-center space-x-2 mt-1">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading lecturers...</span>
+              </div>
+            ) : (
+              <Select
+                value={lecturer?.toString() || "all"}
+                onValueChange={(value) =>
+                  setLecturer(value === "all" ? undefined : parseInt(value))
+                }
+              >
+                <SelectTrigger id="lecturer" className="mt-1">
+                  <SelectValue placeholder="All Lecturers" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Lecturers</SelectItem>
+                  {lecturers?.map((lecturer) => (
+                    <SelectItem
+                      key={lecturer.id}
+                      value={lecturer.id.toString()}
+                    >
+                      {lecturer.fullName || `Lecturer ${lecturer.id}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
         </div>
 
         <div className="mt-5 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
           <div className="sm:col-span-2">
             <Label htmlFor="room">Room</Label>
-            <Select
-              value={room?.toString()}
-              onValueChange={(value) =>
-                setRoom(value ? parseInt(value) : undefined)
-              }
-            >
-              <SelectTrigger id="room" className="mt-1">
-                <SelectValue placeholder="All Rooms" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Rooms</SelectItem>
-                {rooms?.map((room) => (
-                  <SelectItem key={room.id} value={room.id.toString()}>
-                    {room.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {isRoomsLoading ? (
+              <div className="flex items-center space-x-2 mt-1">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading rooms...</span>
+              </div>
+            ) : (
+              <Select
+                value={room?.toString() || "all"}
+                onValueChange={(value) =>
+                  setRoom(value === "all" ? undefined : parseInt(value))
+                }
+              >
+                <SelectTrigger id="room" className="mt-1">
+                  <SelectValue placeholder="All Rooms" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Rooms</SelectItem>
+                  {rooms?.map((room) => (
+                    <SelectItem key={room.id} value={room.id.toString()}>
+                      {room.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           <div className="sm:col-span-2">
             <Label htmlFor="day">Day</Label>
             <Select
-              value={day}
-              onValueChange={(value) => setDay(value)}
+              value={day || "all"}
+              onValueChange={(value) =>
+                setDay(value === "all" ? undefined : value)
+              }
             >
               <SelectTrigger id="day" className="mt-1">
                 <SelectValue placeholder="All Days" />

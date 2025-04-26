@@ -71,8 +71,10 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
 
   // Set initial form values for edit mode
   useEffect(() => {
+    console.log("RoomForm useEffect:", { room, stableInitialData, isEditMode, roomId });
     if ((room || stableInitialData) && isEditMode) {
       const roomData = room || stableInitialData;
+      console.log("Resetting form with:", roomData);
       form.reset({
         name: roomData.name || "",
         type: roomData.type || "",
@@ -80,6 +82,7 @@ const RoomForm = ({ roomId, onClose, isOpen, initialData }) => {
         building: roomData.building || "",
       });
     } else {
+      console.log("Resetting form to default values");
       form.reset({
         name: "",
         type: "",

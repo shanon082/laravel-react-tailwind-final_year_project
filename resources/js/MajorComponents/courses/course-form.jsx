@@ -553,6 +553,7 @@ const CourseForm = ({ courseId, onClose }) => {
                         checked={field.value}
                         onCheckedChange={field.onChange}
                         aria-label="Mark as elective course"
+                        style={{ pointerEvents: "auto", zIndex: 10 }}
                       />
                     </FormControl>
                     <div className="space-y-1 leading-none">

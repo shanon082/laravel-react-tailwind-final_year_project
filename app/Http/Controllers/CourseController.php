@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Course;
 use App\Models\Lecturer;
 use App\Models\Department;
+use App\Notifications\CourseUpdated;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Log;
@@ -97,8 +98,15 @@ class CourseController extends Controller
 
         $course->update($validated);
 
-        return redirect()->route('courses')->with('success', 'Course updated successfully');
+        $users = \App\Models\User::where('role', 'admin')->orWhere('role', 'lecturer')->get();
+    foreach ($users as $user) {
+        $user->notify(new CourseUpdated($course));
     }
+    }
+    // return back()->with('success', 'Course updated.');
+
+    //     return redirect()->route('courses')->with('success', 'Course updated successfully');
+    // }
 
     public function destroy($id)
     {

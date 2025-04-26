@@ -1,12 +1,20 @@
-export default function Checkbox({ className = '', ...props }) {
+export default function Checkbox({ className = '', checked, onCheckedChange, ...props }) {
     return (
         <input
-            {...props}
             type="checkbox"
-            className={
-                'rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 ' +
-                className
-            }
+            checked={checked}
+            onChange={(e) => {
+                // Call onCheckedChange with the boolean value if provided
+                if (onCheckedChange) {
+                    onCheckedChange(e.target.checked);
+                }
+                // Also call any native onChange handler if provided
+                if (props.onChange) {
+                    props.onChange(e);
+                }
+            }}
+            className={`rounded border-gray-300 text-indigo-600 shadow-sm focus:ring-indigo-500 ${className}`}
+            {...props}
         />
     );
 }

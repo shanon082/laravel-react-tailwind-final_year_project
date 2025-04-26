@@ -21,7 +21,6 @@ class StatsController extends Controller
 
     public function availableRooms()
     {
-        // Assuming rooms have an 'is_available' column or similar logic
         return response()->json(['availableRooms' => Room::count()]);
     }
 
