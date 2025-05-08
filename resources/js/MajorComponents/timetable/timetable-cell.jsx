@@ -14,20 +14,10 @@ const TimetableCell = ({ entry, isLunchBreak = false }) => {
     return <div className="timetable-cell p-2 border-b border-r border-gray-200 bg-white min-h-[80px]"></div>;
   }
 
-  const colorMap = {
-    1: 'course-1',
-    2: 'course-2',
-    3: 'course-3',
-    4: 'course-4',
-    5: 'course-5',
-    6: 'course-6',
-    7: 'course-7',
-    8: 'course-8',
-  };
-
-  const colorClass = colorMap[(entry.course.id % 8) + 1] || 'course-1';
-  const colorClassOpacity = `bg-${colorClass} bg-opacity-20`;
-  const borderClass = `border-l-4 border-${colorClass}`;
+  // Use the color_code from the course, assuming it's a valid CSS color (e.g., '#FF5733' or 'red')
+  const colorCode = entry.course.color_code || '#D1D5DB'; // Fallback to gray if color_code is missing
+  const colorClassOpacity = `bg-[${colorCode}] bg-opacity-20`;
+  const borderClass = `border-l-4 border-[${colorCode}]`;
 
   return (
     <div className="timetable-cell p-2 border-b border-r border-gray-200 bg-white min-h-[80px]">

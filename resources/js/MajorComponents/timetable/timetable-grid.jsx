@@ -1,7 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "../../Components/Card";
-import { Button } from "../../Components/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/Card";
+import { Button } from "@/Components/Button";
 import { Day } from "../../types";
 import TimetableCell from "./timetable-cell";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -17,18 +16,8 @@ import {
   getDay,
 } from "date-fns";
 
-const TimetableGrid = ({ filter, viewType }) => {
+const TimetableGrid = ({ filter, viewType, timetable = [], timeSlots = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-
-  // Get timetable data
-  const { data: entries, isLoading } = useQuery({
-    queryKey: ["/timetable", filter],
-  });
-
-  // Get time slots
-  const { data: timeSlots, isLoading: timeSlotsLoading } = useQuery({
-    queryKey: ["/timeslots"],
-  });
 
   // Navigation functions
   const previousWeek = () => setCurrentDate(subWeeks(currentDate, 1));
@@ -50,9 +39,8 @@ const TimetableGrid = ({ filter, viewType }) => {
     if (viewType === "month") {
       return format(currentDate, "MMMM yyyy");
     }
-    // Adjust current date to Monday of the week
     const dayOfWeek = currentDate.getDay();
-    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1; // Make Monday day 0
+    const diff = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
     const monday = new Date(currentDate);
     monday.setDate(currentDate.getDate() - diff);
     const friday = new Date(monday);
@@ -60,8 +48,8 @@ const TimetableGrid = ({ filter, viewType }) => {
     return `${format(monday, "MMMM d")} - ${format(friday, "MMMM d, yyyy")}`;
   };
 
-  // Loading state
-  if (isLoading || timeSlotsLoading) {
+  // Empty state
+  if (timetable.length === 0) {
     return (
       <Card className="bg-white shadow rounded-lg mb-8 overflow-hidden">
         <CardHeader className="px-4 py-5 sm:px-6 flex justify-between items-center border-b border-gray-200">
@@ -75,12 +63,30 @@ const TimetableGrid = ({ filter, viewType }) => {
               : "Timetable List View"}
           </CardTitle>
           <div className="flex items-center space-x-2">
-            <div className="h-10 w-24 bg-gray-200 rounded animate-pulse"></div>
+            <Button
+              size="icon"
+              variant="default"
+              onClick={viewType === "month" ? previousMonth : previousWeek}
+              className="rounded-full"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-sm font-medium text-gray-900">
+              {getDisplayText()}
+            </span>
+            <Button
+              size="icon"
+              variant="default"
+              onClick={viewType === "month" ? nextMonth : nextWeek}
+              className="rounded-full"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <div className="p-8 flex justify-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <div className="text-center py-4 text-gray-600 bg-gray-100 rounded-md">
+            No timetable entries available. Generate a new timetable to view.
           </div>
         </CardContent>
       </Card>
@@ -88,21 +94,19 @@ const TimetableGrid = ({ filter, viewType }) => {
   }
 
   // Filter entries based on filter criteria
-  const filteredEntries = entries?.filter((entry) => {
+  const filteredEntries = timetable.filter((entry) => {
     if (filter.day && entry.day !== filter.day) return false;
-    if (filter.courseId && entry.courseId.toString() !== filter.courseId)
-      return false;
-    if (filter.roomId && entry.roomId.toString() !== filter.roomId) return false;
-    if (filter.lecturerId && entry.lecturerId.toString() !== filter.lecturerId)
-      return false;
-    if (filter.timeSlotId && entry.timeSlotId.toString() !== filter.timeSlotId)
-      return false;
+    if (filter.course_id && entry.course.id.toString() !== filter.course_id) return false;
+    if (filter.room_id && entry.room.id.toString() !== filter.room_id) return false;
+    if (filter.lecturer_id && entry.lecturer.id.toString() !== filter.lecturer_id) return false;
+    if (filter.department && entry.course.department !== filter.department) return false;
+    if (filter.level && entry.course.level.toString() !== filter.level) return false;
     return true;
   });
 
   // Get unique courses for the legend
   const uniqueCourses = new Map();
-  filteredEntries?.forEach((entry) => {
+  filteredEntries.forEach((entry) => {
     if (!uniqueCourses.has(entry.course.id)) {
       uniqueCourses.set(entry.course.id, entry.course);
     }
@@ -110,8 +114,8 @@ const TimetableGrid = ({ filter, viewType }) => {
 
   // Create a map to quickly lookup entries by day and time slot
   const entryMap = new Map();
-  filteredEntries?.forEach((entry) => {
-    const key = `${entry.day}-${entry.timeSlotId}`;
+  filteredEntries.forEach((entry) => {
+    const key = `${entry.day}-${entry.timeSlot.id}`;
     entryMap.set(key, entry);
   });
 
@@ -121,19 +125,10 @@ const TimetableGrid = ({ filter, viewType }) => {
     return entryMap.get(key) || null;
   };
 
-  // Color mapping for courses
+  // Color mapping for courses using color_code
   const getCourseColor = (courseId) => {
-    const colorMap = {
-      1: "course-1",
-      2: "course-2",
-      3: "course-3",
-      4: "course-4",
-      5: "course-5",
-      6: "course-6",
-      7: "course-7",
-      8: "course-8",
-    };
-    return colorMap[(courseId % 8) + 1] || "course-1";
+    const course = uniqueCourses.get(courseId);
+    return course?.color_code || '#D1D5DB'; // Fallback to gray
   };
 
   // Monthly view logic
@@ -141,11 +136,10 @@ const TimetableGrid = ({ filter, viewType }) => {
     const start = startOfMonth(currentDate);
     const end = endOfMonth(currentDate);
     const daysInMonth = eachDayOfInterval({ start, end });
-    const firstDayOfMonth = getDay(start); // 0 (Sunday) to 6 (Saturday)
+    const firstDayOfMonth = getDay(start);
     const weeks = [];
-    let week = Array(7).fill(null); // Initialize week with 7 slots
+    let week = Array(7).fill(null);
 
-    // Adjust for Monday as first day (0 = Monday, 1 = Tuesday, ..., 6 = Sunday)
     const dayMapping = {
       0: 6, // Sunday -> 6
       1: 0, // Monday -> 0
@@ -156,12 +150,10 @@ const TimetableGrid = ({ filter, viewType }) => {
       6: 5, // Saturday -> 5
     };
 
-    // Fill the first week with empty slots before the first day
     for (let i = 0; i < dayMapping[firstDayOfMonth]; i++) {
       week[i] = null;
     }
 
-    // Fill weeks with days
     daysInMonth.forEach((day, index) => {
       const weekIndex = dayMapping[getDay(day)];
       week[weekIndex] = day;
@@ -174,7 +166,6 @@ const TimetableGrid = ({ filter, viewType }) => {
 
     return (
       <div className="timetable-grid min-w-full p-4">
-        {/* Day headers */}
         <div className="grid grid-cols-7 gap-1">
           {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
             <div
@@ -186,7 +177,6 @@ const TimetableGrid = ({ filter, viewType }) => {
           ))}
         </div>
 
-        {/* Calendar grid */}
         {weeks.map((week, weekIndex) => (
           <div key={weekIndex} className="grid grid-cols-7 gap-1">
             {week.map((day, dayIndex) => {
@@ -221,9 +211,9 @@ const TimetableGrid = ({ filter, viewType }) => {
                   <div className="text-xs font-medium text-gray-900">
                     {format(day, "d")}
                   </div>
-                  {timeSlots?.map((timeSlot) => {
+                  {timeSlots.map((timeSlot) => {
                     const entry = getEntry(dayName, timeSlot.id);
-                    const isLunchBreak = timeSlot.startTime === "12:00:00";
+                    const isLunchBreak = timeSlot.start_time === "12:00:00";
                     return (
                       <TimetableCell
                         key={`${dayName}-${timeSlot.id}`}
@@ -279,28 +269,24 @@ const TimetableGrid = ({ filter, viewType }) => {
       <div className="overflow-x-auto">
         {viewType === "week" && (
           <div className="timetable-grid min-w-full grid grid-cols-timetable">
-            {/* Header row: Empty cell + time slot headers */}
-            <div className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-500 border-r border-b border-gray-200 sticky top-0 z-10 "></div>
-            {timeSlots?.map((timeSlot) => (
+            <div className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-500 border-r border-b border-gray-200 sticky top-0 z-10"></div>
+            {timeSlots.map((timeSlot) => (
               <div
                 key={timeSlot.id}
-                className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-700 border-r border-b border-gray-200 sticky top-0 z-10  [writing-mode:vertical-rl] rotate-180"
+                className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-700 border-r border-b border-gray-200 sticky top-0 z-10 [writing-mode:vertical-rl] rotate-180"
               >
-                {timeSlot.startTime.replace(":00", "")} -{" "}
-                {timeSlot.endTime.replace(":00", "")}
+                {timeSlot.start_time.replace(":00", "")} -{" "}
+                {timeSlot.end_time.replace(":00", "")}
               </div>
             ))}
 
-            {/* Day rows */}
             {days.map((day) => (
               <Fragment key={day}>
-                {/* Day label */}
-                <div className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-500 border-r border-b border-gray-200 flex items-center justify-center sticky left-0 z-10 ">
+                <div className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-500 border-r border-b border-gray-200 flex items-center justify-center sticky left-0 z-10">
                   {day.charAt(0) + day.slice(1).toLowerCase()}
                 </div>
-                {/* Entries for each time slot */}
-                {timeSlots?.map((timeSlot) => {
-                  const isLunchBreak = timeSlot.startTime === "12:00:00";
+                {timeSlots.map((timeSlot) => {
+                  const isLunchBreak = timeSlot.start_time === "12:00:00";
                   return (
                     <TimetableCell
                       key={`${day}-${timeSlot.id}`}
@@ -320,16 +306,16 @@ const TimetableGrid = ({ filter, viewType }) => {
               {filter.day.charAt(0) + filter.day.slice(1).toLowerCase()}
             </h3>
             <div className="space-y-4">
-              {timeSlots?.map((timeSlot) => (
+              {timeSlots.map((timeSlot) => (
                 <div key={timeSlot.id} className="flex">
                   <div className="w-24 text-sm font-medium text-gray-500 flex items-center">
-                    {timeSlot.startTime.replace(":00", "")} -{" "}
-                    {timeSlot.endTime.replace(":00", "")}
+                    {timeSlot.start_time.replace(":00", "")} -{" "}
+                    {timeSlot.end_time.replace(":00", "")}
                   </div>
                   <div className="flex-1">
                     <TimetableCell
                       entry={getEntry(filter.day, timeSlot.id)}
-                      isLunchBreak={timeSlot.startTime === "12:00:00"}
+                      isLunchBreak={timeSlot.start_time === "12:00:00"}
                     />
                   </div>
                 </div>
@@ -385,68 +371,63 @@ const TimetableGrid = ({ filter, viewType }) => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredEntries?.map((entry) => {
-                    const timeSlot = timeSlots?.find(
-                      (ts) => ts.id === entry.timeSlotId
-                    );
-                    return (
-                      <tr key={entry.id}>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            <div
-                              className={`h-3 w-3 bg-${getCourseColor(
-                                entry.course.id
-                              )} rounded-full mr-2`}
-                            ></div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {entry.course.name}
-                            </div>
+                  {filteredEntries.map((entry) => (
+                    <tr key={entry.id}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div
+                            className={`h-3 w-3 bg-[${getCourseColor(
+                              entry.course.id
+                            )}] rounded-full mr-2`}
+                          ></div>
+                          <div className="text-sm font-medium text-gray-900">
+                            {entry.course.name}
                           </div>
-                          <div className="text-xs text-gray-500">
-                            {entry.course.code}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {entry.day.charAt(0) +
-                              entry.day.slice(1).toLowerCase()}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {timeSlot
-                              ? `${timeSlot.startTime.replace(
-                                  ":00",
-                                  ""
-                                )} - ${timeSlot.endTime.replace(":00", "")}`
-                              : "Unknown"}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {entry.room.name}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            {entry.lecturer.userDetails?.fullName ||
-                              `Lecturer ${entry.lecturer.id}`}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          {entry.hasConflict ? (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                              Conflict
-                            </span>
-                          ) : (
-                            <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                              Scheduled
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {entry.course.code}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {entry.day.charAt(0) +
+                            entry.day.slice(1).toLowerCase()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {entry.timeSlot
+                            ? `${entry.timeSlot.startTime.replace(
+                                ":00",
+                                ""
+                              )} - ${entry.timeSlot.endTime.replace(":00", "")}`
+                            : "Unknown"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {entry.room.name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {entry.lecturer.userDetails?.fullName ||
+                            `Lecturer ${entry.lecturer.id}`}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {entry.hasConflict ? (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                            Conflict
+                          </span>
+                        ) : (
+                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                            Scheduled
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -460,9 +441,7 @@ const TimetableGrid = ({ filter, viewType }) => {
             {Array.from(uniqueCourses.values()).map((course) => (
               <div key={course.id} className="flex items-center">
                 <div
-                  className={`h-3 w-3 bg-${getCourseColor(
-                    course.id
-                  )} rounded-full mr-2`}
+                  className={`h-3 w-3 bg-[${course.color_code || '#D1D5DB'}] rounded-full mr-2`}
                 ></div>
                 <span className="text-xs text-gray-600">{course.name}</span>
               </div>

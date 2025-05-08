@@ -1,6 +1,5 @@
 <?php
 
-// app/Http/Controllers/TimetableController.php
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
@@ -11,10 +10,15 @@ use App\Models\Course;
 use App\Models\Lecturer;
 use App\Models\Room;
 use App\Models\TimeSlot;
+use App\Models\LecturerAvailability;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Response;
 use Inertia\Inertia;
+use League\Csv\Writer;
 
 class TimetableController extends Controller
 {
@@ -63,16 +67,25 @@ class TimetableController extends Controller
     
         if ($request->header('X-Inertia')) {
             return Inertia::render('Timetable', [
-                'timetable' => TimetableEntry::all()->map(function ($entry) {
+                'timetable' => $entries->map(function ($entry) {
                     return [
                         'id' => $entry->id,
-                        'course' => $entry->course,
+                        'course' => [
+                            'id' => $entry->course->id,
+                            'name' => $entry->course->name,
+                            'code' => $entry->course->code,
+                            'department' => $entry->course->department,
+                            'level' => $entry->course->year_level,
+                            'color_code' => $entry->course->color_code,
+                        ],
                         'lecturer' => $entry->lecturer,
                         'room' => $entry->room,
                         'time_slot' => $entry->timeSlot,
                         'day' => $entry->day,
                         'academic_year' => $entry->academic_year,
                         'semester' => $entry->semester,
+                        'has_conflict' => $entry->has_conflict,
+                        'conflict_type' => $entry->conflict_type,
                     ];
                 }),
                 'auth' => auth()->user(),
@@ -86,18 +99,16 @@ class TimetableController extends Controller
                     'department' => $request->department ?? '',
                     'level' => $request->level ?? '',
                 ],
+                'flash' => [
+                    'error' => $request->session()->get('error'),
+                    'success' => $request->session()->get('success'),
+                ],
             ]);
         }
     
         return response()->json($entries);
     }
 
-    /**
-     * Store a newly created timetable entry in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
     public function store(Request $request)
     {
         // Check if user is admin
@@ -152,7 +163,6 @@ class TimetableController extends Controller
                     $conflictingEntry->save();
 
                     // Create notifications for affected users
-                    // For lecturer
                     Notification::create([
                         'user_id' => $timetableEntry->lecturer->user_id,
                         'title' => 'Timetable Conflict Detected',
@@ -181,25 +191,12 @@ class TimetableController extends Controller
         }
     }
 
-        /**
-     * Display the specified timetable entry.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
         $timetableEntry = TimetableEntry::with(['course', 'lecturer.user', 'room', 'timeSlot'])->findOrFail($id);
         return response()->json($timetableEntry);
     }
 
-    /**
-     * Update the specified timetable entry in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function update(Request $request, $id)
     {
         // Check if user is admin
@@ -299,7 +296,6 @@ class TimetableController extends Controller
                     $conflictingEntry->save();
 
                     // Create notifications for affected users
-                    // For lecturer
                     Notification::create([
                         'user_id' => $timetableEntry->lecturer->user_id,
                         'title' => 'Timetable Conflict Detected',
@@ -328,12 +324,6 @@ class TimetableController extends Controller
         }
     }
 
-    /**
-     * Remove the specified timetable entry from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function destroy($id)
     {
         // Check if user is admin
@@ -394,12 +384,6 @@ class TimetableController extends Controller
         }
     }
 
-        /**
-     * Get all conflicts for this timetable entry.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function conflicts($id)
     {
         $timetableEntry = TimetableEntry::findOrFail($id);
@@ -408,307 +392,479 @@ class TimetableController extends Controller
         return response()->json($conflicts);
     }
 
-    /**
-     * Generate a timetable for the specified academic year and semester.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\Response
-     */
-    public function generate(Request $request)
-    {
-        // Check if user is admin
-        if (!Auth::user()->isAdmin()) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+    // In TimetableController.php
+public function save(Request $request)
+{
+    if (!Auth::user()->isAdmin()) {
+        return response()->json(['error' => 'Unauthorized access'], 403);
+    }
+
+    $validated = $request->validate([
+        'timetable' => 'required|array',
+        'timetable.*.course_id' => 'required|exists:courses,id',
+        'timetable.*.lecturer_id' => 'required|exists:lecturers,id',
+        'timetable.*.room_id' => 'required|exists:rooms,id',
+        'timetable.*.time_slot_id' => 'required|exists:time_slots,id',
+        'timetable.*.day' => 'required|in:MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY',
+        'timetable.*.academic_year' => 'required|string',
+        'timetable.*.semester' => 'required|in:First,Second,Third',
+    ]);
+
+    DB::beginTransaction();
+    try {
+        TimetableEntry::where('academic_year', $validated['timetable'][0]['academic_year'])
+            ->where('semester', $validated['timetable'][0]['semester'])
+            ->delete();
+
+        foreach ($validated['timetable'] as $entry) {
+            TimetableEntry::create($entry);
         }
 
+        DB::commit();
+        return response()->json(['message' => 'Timetable saved successfully'], 200);
+    } catch (\Exception $e) {
+        DB::rollBack();
+        Log::error('Failed to save timetable', ['error' => $e->getMessage()]);
+        return response()->json(['error' => 'Failed to save timetable'], 500);
+    }
+}
+public function generate(Request $request)
+{
+    if (!Auth::user()->isAdmin()) {
+        Log::warning('Unauthorized timetable generation attempt', ['user_id' => Auth::id()]);
+        return response()->json(['error' => 'Unauthorized access'], 403);
+    }
+
+    try {
+        Log::info('Starting timetable generation', ['request' => $request->all()]);
+
+        // Validate input
         $validated = $request->validate([
-            'academic_year' => 'required|string',
-            'semester' => 'required|string',
+            'academic_year' => 'required|string|max:255',
+            'semester' => 'required|in:First,Second,Third',
         ]);
 
+        $academicYear = $validated['academic_year'];
+        $semester = $validated['semester'];
+
+        // Fetch settings
+        $settings = Setting::all()->pluck('value', 'key')->toArray();
+        $timeSlotsData = isset($settings['time_slots']) ? json_decode($settings['time_slots'], true) : [];
+        $lunchBreak = isset($settings['lunch_break']) ? json_decode($settings['lunch_break'], true) : null;
+        $maxCoursesPerDay = isset($settings['max_courses_per_day']) ? json_decode($settings['max_courses_per_day'], true) : 4;
+
+        // Fetch data
+        $courses = Course::where('semester', $semester)->get();
+        $rooms = Room::all();
+        $lecturers = Lecturer::all();
+        $timeSlots = TimeSlot::all();
+        $availabilities = LecturerAvailability::all();
+
+        Log::info('Data counts', [
+            'courses' => $courses->count(),
+            'rooms' => $rooms->count(),
+            'lecturers' => $lecturers->count(),
+            'time_slots' => $timeSlots->count(),
+            'availabilities' => $availabilities->count(),
+        ]);
+
+        // Validate data existence
+        if ($courses->isEmpty()) {
+            Log::warning('No courses found for semester: ' . $semester);
+            return response()->json(['error' => 'No courses available for the selected semester'], 400);
+        }
+        if ($rooms->isEmpty() || $lecturers->isEmpty() || $timeSlots->isEmpty()) {
+            Log::warning('Missing required data: rooms, lecturers, or time slots');
+            return response()->json(['error' => 'Missing required data (rooms, lecturers, or time slots)'], 400);
+        }
+
+        // Build OpenAI prompt
+        $prompt = "Generate a university timetable for academic year $academicYear, semester $semester. Ensure no conflicts in room or lecturer scheduling and respect lecturer availability. Return the timetable as a JSON array of objects with fields: course_id, lecturer_id, room_id, time_slot_id, day, academic_year, semester.\n\n";
+        $prompt .= "Courses (ID, Code, Name, Enrolled Students):\n" . $courses->map(function ($course) {
+            return "[{$course->id}, {$course->code}, {$course->name}, {$course->enrollments()->count()}]";
+        })->implode("\n") . "\n\n";
+        $prompt .= "Rooms (ID, Name, Capacity):\n" . $rooms->map(function ($room) {
+            return "[{$room->id}, {$room->name}, {$room->capacity}]";
+        })->implode("\n") . "\n\n";
+        $prompt .= "Lecturers (ID, Name):\n" . $lecturers->map(function ($lecturer) {
+            return "[{$lecturer->id}, {$lecturer->userDetails->fullName}]";
+        })->implode("\n") . "\n\n";
+        $prompt .= "Time Slots (ID, Start, End):\n" . $timeSlotsData->map(function ($slot, $index) {
+            return "[{$index}, {$slot['start_time']}, {$slot['end_time']}]";
+        })->implode("\n") . "\n\n";
+        $prompt .= "Availabilities (Lecturer ID, Day, Start, End):\n" . $availabilities->map(function ($avail) {
+            return "[{$avail->lecturer_id}, {$avail->day}, {$avail->start_time}, {$avail->end_time}]";
+        })->implode("\n") . "\n\n";
+        $prompt .= "Constraints:\n";
+        $prompt .= "- Ensure rooms have sufficient capacity for the number of students enrolled in each course.\n";
+        $prompt .= "- Respect lecturer availability strictly (only schedule within their available times).\n";
+        $prompt .= "- Avoid scheduling the same lecturer or room for multiple courses at the same time on the same day.\n";
+        $prompt .= "- Limit each lecturer to a maximum of $maxCoursesPerDay courses per day.\n";
+        $prompt .= "- Valid days are: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY.\n";
+        $prompt .= "Output format: ```json\n[]\n```";
+
+        // Call OpenAI API
+        $openaiApiKey = env('OPENAI_API_KEY');
+        if (!$openaiApiKey) {
+            Log::error('OPENAI_API_KEY is not set in .env');
+            return response()->json(['error' => 'OpenAI API key is not configured'], 500);
+        }
+
+        $response = Http::withHeaders([
+            'Authorization' => 'Bearer ' . $openaiApiKey,
+            'Content-Type' => 'application/json',
+        ])->timeout(30)->post('https://api.openai.com/v1/chat/completions', [
+            'model' => 'gpt-3.5-turbo',
+            'messages' => [
+                ['role' => 'system', 'content' => 'You are a timetable scheduling assistant. Generate a conflict-free timetable in JSON format.'],
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'max_tokens' => 4000,
+            'temperature' => 0.5,
+        ]);
+
+        if ($response->failed()) {
+            Log::error('OpenAI API call failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+            ]);
+            return response()->json(['error' => 'Failed to generate timetable with OpenAI'], 500);
+        }
+
+        // Parse OpenAI response
+        $aiResponse = $response->json();
+        $content = $aiResponse['choices'][0]['message']['content'] ?? '';
+        Log::info('OpenAI response content', ['content' => $content]);
+
+        preg_match('/```json\n([\s\S]*?)\n```/', $content, $matches);
+        if (empty($matches[1])) {
+            try {
+                $timetableData = json_decode($content, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($timetableData)) {
+                    Log::info('Parsed JSON directly from content');
+                } else {
+                    throw new \Exception('Invalid JSON format');
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to parse JSON from OpenAI response', [
+                    'content' => $content,
+                    'error' => $e->getMessage(),
+                ]);
+                return response()->json(['error' => 'Invalid OpenAI response format'], 500);
+            }
+        } else {
+            $timetableData = json_decode($matches[1], true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('JSON decoding failed', [
+                    'error' => json_last_error_msg(),
+                    'data' => $matches[1],
+                ]);
+                return response()->json(['error' => 'Invalid JSON in OpenAI response'], 500);
+            }
+        }
+
+        if (!is_array($timetableData)) {
+            Log::error('Timetable data is not an array', ['data' => $timetableData]);
+            return response()->json(['error' => 'Invalid timetable data format'], 500);
+        }
+
+        // Enrich timetable data with related information
+        $enrichedTimetable = array_map(function ($entry) use ($courses, $rooms, $lecturers, $timeSlotsData) {
+            $course = $courses->firstWhere('id', $entry['course_id']);
+            $room = $rooms->firstWhere('id', $entry['room_id']);
+            $lecturer = $lecturers->firstWhere('id', $entry['lecturer_id']);
+            $timeSlotIndex = $entry['time_slot_id'];
+            $timeSlot = isset($timeSlotsData[$timeSlotIndex]) ? $timeSlotsData[$timeSlotIndex] : null;
+
+            return [
+                'id' => uniqid(),
+                'course' => $course ? [
+                    'id' => $course->id,
+                    'name' => $course->name,
+                    'code' => $course->code,
+                    'color_code' => $course->color_code,
+                    'department' => $course->department,
+                    'level' => $course->year_level,
+                ] : null,
+                'room' => $room ? [
+                    'id' => $room->id,
+                    'name' => $room->name,
+                ] : null,
+                'lecturer' => $lecturer ? [
+                    'id' => $lecturer->id,
+                    'userDetails' => [
+                        'fullName' => $lecturer->userDetails->fullName,
+                    ],
+                ] : null,
+                'timeSlot' => $timeSlot ? [
+                    'id' => $timeSlotIndex,
+                    'startTime' => $timeSlot['start_time'],
+                    'endTime' => $timeSlot['end_time'],
+                ] : null,
+                'day' => $entry['day'],
+                'academic_year' => $entry['academic_year'],
+                'semester' => $entry['semester'],
+                'hasConflict' => false,
+                'conflictType' => null,
+            ];
+        }, $timetableData);
+
+        // Validate and check for conflicts
+        $conflicts = $this->checkForConflicts($enrichedTimetable, $courses, $rooms, $lecturers, $timeSlots, $availabilities, $maxCoursesPerDay);
+
+        // Update entries with conflict information
+        $enrichedTimetable = array_map(function ($entry, $index) use ($conflicts) {
+            $conflict = collect($conflicts)->firstWhere('index', $index);
+            if ($conflict) {
+                $entry['hasConflict'] = true;
+                $entry['conflictType'] = $conflict['type'];
+            }
+            return $entry;
+        }, $enrichedTimetable, array_keys($enrichedTimetable));
+
+        // Save to timetable_entries
+        DB::beginTransaction();
         try {
-            DB::beginTransaction();
-
-            // Clear existing timetable entries for this academic year and semester
-            TimetableEntry::where('academic_year', $validated['academic_year'])
-                ->where('semester', $validated['semester'])
+            TimetableEntry::where('academic_year', $academicYear)
+                ->where('semester', $semester)
                 ->delete();
 
-            // Clear existing conflicts for this academic year and semester
-            Conflict::where('academic_year', $validated['academic_year'])
-                ->where('semester', $validated['semester'])
-                ->delete();
-
-            // Get all courses, rooms, lecturers, and time slots
-            $courses = Course::all();
-            $rooms = Room::all();
-            $lecturers = Lecturer::with('availability')->get();
-            $timeSlots = TimeSlot::all();
-            $days = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
-
-            // Build array of available slots for each room
-            $roomAvailability = [];
-            foreach ($rooms as $room) {
-                foreach ($days as $day) {
-                    foreach ($timeSlots as $timeSlot) {
-                        $roomAvailability[$room->id][$day][$timeSlot->id] = true;
-                    }
-                }
-            }
-
-            // Build array of available slots for each lecturer
-            $lecturerAvailability = [];
-            foreach ($lecturers as $lecturer) {
-                foreach ($days as $day) {
-                    foreach ($timeSlots as $timeSlot) {
-                        $lecturerAvailability[$lecturer->id][$day][$timeSlot->id] = true;
-                        
-                        // Check against lecturer's defined availability
-                        if ($lecturer->availability->isNotEmpty()) {
-                            $availableSlot = false;
-                            foreach ($lecturer->availability as $availability) {
-                                if ($availability->day === $day && $availability->containsTimeSlot($timeSlot)) {
-                                    $availableSlot = true;
-                                    break;
-                                }
-                            }
-                            $lecturerAvailability[$lecturer->id][$day][$timeSlot->id] = $availableSlot;
-                        }
-                    }
-                }
-            }
-
-            // Assign lecturers to courses (simple allocation - in a production system this would be more complex)
-            $courseAssignments = [];
-            $lecturerCount = $lecturers->count();
-            $i = 0;
-            
-            foreach ($courses as $course) {
-                $courseAssignments[$course->id] = $lecturers[$i % $lecturerCount]->id;
-                $i++;
-            }
-
-            // Schedule courses
-            $scheduledEntries = [];
-            $conflicts = [];
-            
-            foreach ($courses as $course) {
-                $lecturerId = $courseAssignments[$course->id];
-                
-                // Find an available slot
-                $scheduled = false;
-                
-                foreach ($days as $day) {
-                    if ($scheduled) break;
-                    
-                    foreach ($timeSlots as $timeSlot) {
-                        if ($scheduled) break;
-                        
-                        // Find a suitable room (based on capacity, type, etc. - simplified here)
-                        foreach ($rooms as $room) {
-                            // Check if slot is available for both room and lecturer
-                            if ($roomAvailability[$room->id][$day][$timeSlot->id] && 
-                                $lecturerAvailability[$lecturerId][$day][$timeSlot->id]) {
-                                
-                                // Create timetable entry
-                                $entry = TimetableEntry::create([
-                                    'course_id' => $course->id,
-                                    'room_id' => $room->id,
-                                    'lecturer_id' => $lecturerId,
-                                    'day' => $day,
-                                    'time_slot_id' => $timeSlot->id,
-                                    'has_conflict' => false,
-                                    'academic_year' => $validated['academic_year'],
-                                    'semester' => $validated['semester'],
-                                ]);
-                                
-                                // Mark slot as used
-                                $roomAvailability[$room->id][$day][$timeSlot->id] = false;
-                                $lecturerAvailability[$lecturerId][$day][$timeSlot->id] = false;
-                                
-                                $scheduledEntries[] = $entry;
-                                $scheduled = true;
-                                break;
-                            }
-                        }
-                    }
-                }
-                
-                // If no slot found, create with conflict
-                if (!$scheduled) {
-                    // Find a slot where just the lecturer is available
-                    $conflictType = null;
-                    $conflictingEntry = null;
-                    $conflictDay = null;
-                    $conflictTimeSlot = null;
-                    $conflictRoom = null;
-                    
-                    foreach ($days as $day) {
-                        if ($scheduled) break;
-                        
-                        foreach ($timeSlots as $timeSlot) {
-                            if ($scheduled) break;
-                            
-                            foreach ($rooms as $room) {
-                                if ($lecturerAvailability[$lecturerId][$day][$timeSlot->id]) {
-                                    // Lecturer available but room is not
-                                    $conflictType = 'ROOM';
-                                    $conflictingEntry = TimetableEntry::where('room_id', $room->id)
-                                        ->where('day', $day)
-                                        ->where('time_slot_id', $timeSlot->id)
-                                        ->where('academic_year', $validated['academic_year'])
-                                        ->where('semester', $validated['semester'])
-                                        ->first();
-                                    $conflictDay = $day;
-                                    $conflictTimeSlot = $timeSlot;
-                                    $conflictRoom = $room;
-                                    $scheduled = true;
-                                    break;
-                                }
-                                
-                                if ($roomAvailability[$room->id][$day][$timeSlot->id]) {
-                                    // Room available but lecturer is not
-                                    $conflictType = 'LECTURER';
-                                    $conflictingEntry = TimetableEntry::where('lecturer_id', $lecturerId)
-                                        ->where('day', $day)
-                                        ->where('time_slot_id', $timeSlot->id)
-                                        ->where('academic_year', $validated['academic_year'])
-                                        ->where('semester', $validated['semester'])
-                                        ->first();
-                                    $conflictDay = $day;
-                                    $conflictTimeSlot = $timeSlot;
-                                    $conflictRoom = $room;
-                                    $scheduled = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-                    
-                    if ($scheduled) {
-                        // Create entry with conflict
-                        $entry = TimetableEntry::create([
-                            'course_id' => $course->id,
-                            'room_id' => $conflictRoom->id,
-                            'lecturer_id' => $lecturerId,
-                            'day' => $conflictDay,
-                            'time_slot_id' => $conflictTimeSlot->id,
-                            'has_conflict' => true,
-                            'conflict_type' => $conflictType,
-                            'academic_year' => $validated['academic_year'],
-                            'semester' => $validated['semester'],
-                        ]);
-                        
-                        // Update conflicting entry
-                        if ($conflictingEntry) {
-                            $conflictingEntry->has_conflict = true;
-                            $conflictingEntry->conflict_type = $conflictType;
-                            $conflictingEntry->save();
-                            
-                            // Create conflict record
-                            $description = '';
-                            if ($conflictType === 'ROOM') {
-                                $description = "Room {$conflictRoom->name} is double-booked.";
-                            } else {
-                                $description = "Lecturer is scheduled for two classes at the same time.";
-                            }
-                            
-                            $conflict = Conflict::create([
-                                'entry1_id' => $entry->id,
-                                'entry2_id' => $conflictingEntry->id,
-                                'type' => $conflictType,
-                                'description' => $description,
-                                'resolved' => false,
-                                'academic_year' => $validated['academic_year'],
-                                'semester' => $validated['semester'],
-                            ]);
-                            
-                            $conflicts[] = $conflict;
-                        }
-                        
-                        $scheduledEntries[] = $entry;
-                    } else {
-                        // If we can't even create a conflicting entry, just pick a random slot
-                        $randomDay = $days[array_rand($days)];
-                        $randomTimeSlot = $timeSlots[array_rand($timeSlots->toArray())];
-                        $randomRoom = $rooms[array_rand($rooms->toArray())];
-                        
-                        $entry = TimetableEntry::create([
-                            'course_id' => $course->id,
-                            'room_id' => $randomRoom->id,
-                            'lecturer_id' => $lecturerId,
-                            'day' => $randomDay,
-                            'time_slot_id' => $randomTimeSlot->id,
-                            'has_conflict' => true,
-                            'conflict_type' => 'MANUAL_REVIEW',
-                            'academic_year' => $validated['academic_year'],
-                            'semester' => $validated['semester'],
-                        ]);
-                        
-                        $scheduledEntries[] = $entry;
-                    }
-                }
+            foreach ($timetableData as $entry) {
+                TimetableEntry::create([
+                    'course_id' => $entry['course_id'],
+                    'lecturer_id' => $entry['lecturer_id'],
+                    'room_id' => $entry['room_id'],
+                    'time_slot_id' => $entry['time_slot_id'],
+                    'day' => $entry['day'],
+                    'academic_year' => $entry['academic_year'],
+                    'semester' => $entry['semester'],
+                ]);
             }
 
             DB::commit();
-
-            // Return generated timetable
-            $response = [
-                'entries' => $scheduledEntries,
-                'conflicts' => $conflicts,
-                'stats' => [
-                    'total_entries' => count($scheduledEntries),
-                    'conflict_count' => count($conflicts),
-                ]
-            ];
-
-            return response()->json($response);
+            Log::info('Timetable saved to timetable_entries', [
+                'academic_year' => $academicYear,
+                'semester' => $semester,
+                'entries' => count($timetableData),
+            ]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Error generating timetable: ' . $e->getMessage()], 500);
+            Log::error('Failed to save timetable', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return response()->json(['error' => 'Failed to save timetable'], 500);
         }
+
+        // Create notification
+        Notification::create([
+            'user_id' => Auth::id(),
+            'title' => 'Timetable Generated',
+            'message' => count($conflicts) > 0
+                ? 'Timetable generated with ' . count($conflicts) . ' conflicts. Please review.'
+                : 'Timetable generated and saved successfully for ' . $academicYear . ', ' . $semester . '.',
+            'type' => count($conflicts) > 0 ? 'warning' : 'success',
+        ]);
+
+        // Return JSON response
+        return response()->json([
+            'timetable' => $enrichedTimetable,
+            'conflicts' => $conflicts,
+            'message' => count($conflicts) > 0
+                ? 'Timetable generated with conflicts'
+                : 'Timetable generated and saved successfully',
+        ], 200);
+
+    } catch (\Exception $e) {
+        Log::error('Error in timetable generation', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+        return response()->json(['error' => 'Error generating timetable: ' . $e->getMessage()], 500);
+    }
+}
+
+public function export(Request $request)
+{
+    if (!Auth::user()->isAdmin()) {
+        Log::warning('Unauthorized timetable export attempt', ['user_id' => Auth::id()]);
+        return response()->json(['error' => 'Unauthorized access'], 403);
     }
 
-    /**
-     * Check for conflicts with existing timetable entries.
-     *
-     * @param  \App\Models\TimetableEntry  $entry
-     * @return array
-     */
-    private function checkForConflicts(TimetableEntry $entry)
-    {
-        $conflicts = [];
-        
-        // Get all entries for the same day and time slot
-        $potentialConflicts = TimetableEntry::where('id', '!=', $entry->id)
-            ->where('day', $entry->day)
-            ->where('time_slot_id', $entry->time_slot_id)
-            ->where('academic_year', $entry->academic_year)
-            ->where('semester', $entry->semester)
-            ->get();
-        
-        foreach ($potentialConflicts as $potentialConflict) {
-            // Check for room conflict
-            if ($potentialConflict->room_id === $entry->room_id) {
-                $conflicts[] = [
-                    'entry' => $potentialConflict,
-                    'type' => 'ROOM',
-                    'description' => "Room {$entry->room->name} is double-booked."
-                ];
-            }
-            
-            // Check for lecturer conflict
-            if ($potentialConflict->lecturer_id === $entry->lecturer_id) {
-                $conflicts[] = [
-                    'entry' => $potentialConflict,
-                    'type' => 'LECTURER',
-                    'description' => "Lecturer {$entry->lecturer->user->full_name} is scheduled for two classes at the same time."
-                ];
-            }
-        }
-        
-        return $conflicts;
+    $validated = $request->validate([
+        'academic_year' => 'required|string|max:255',
+        'semester' => 'required|in:First,Second,Third',
+        'format' => 'required|in:csv,pdf',
+    ]);
+
+    $academicYear = $validated['academic_year'];
+    $semester = $validated['semester'];
+    $format = $validated['format'];
+
+    // Fetch timetable entries
+    $entries = TimetableEntry::with(['course', 'room', 'lecturer', 'timeSlot'])
+        ->where('academic_year', $academicYear)
+        ->where('semester', $semester)
+        ->get();
+
+    if ($entries->isEmpty()) {
+        return response()->json(['error' => 'No timetable entries found for export'], 404);
     }
 
+    if ($format === 'csv') {
+        $csv = Writer::createFromString();
+        $csv->insertOne([
+            'Course Code',
+            'Course Name',
+            'Day',
+            'Time',
+            'Room',
+            'Lecturer',
+            'Academic Year',
+            'Semester',
+        ]);
 
+        foreach ($entries as $entry) {
+            $csv->insertOne([
+                $entry->course->code,
+                $entry->course->name,
+                $entry->day,
+                "{$entry->timeSlot->start_time} - {$entry->timeSlot->end_time}",
+                $entry->room->name,
+                $entry->lecturer->userDetails->fullName,
+                $entry->academic_year,
+                $entry->semester,
+            ]);
+        }
+
+        $filename = "timetable_{$academicYear}_{$semester}.csv";
+        return Response::make($csv->toString(), 200, [
+            'Content-Type' => 'text/csv',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    } else {
+        $latexContent = "\\documentclass{article}\n";
+        $latexContent .= "\\usepackage{booktabs}\n";
+        $latexContent .= "\\usepackage{geometry}\n";
+        $latexContent .= "\\geometry{a4paper, margin=1in}\n";
+        $latexContent .= "\\title{Timetable for {$academicYear} - {$semester}}\n";
+        $latexContent .= "\\author{}\n";
+        $latexContent .= "\\date{}\n";
+        $latexContent .= "\\begin{document}\n";
+        $latexContent .= "\\maketitle\n";
+        $latexContent .= "\\section*{Timetable}\n";
+        $latexContent .= "\\begin{tabular}{lllp{4cm}ll}\n";
+        $latexContent .= "\\toprule\n";
+        $latexContent .= "Course Code & Course Name & Day & Time & Room & Lecturer \\\\\n";
+        $latexContent .= "\\midrule\n";
+
+        foreach ($entries as $entry) {
+            $courseCode = addslashes($entry->course->code);
+            $courseName = addslashes($entry->course->name);
+            $day = addslashes($entry->day);
+            $time = addslashes("{$entry->timeSlot->start_time} - {$entry->timeSlot->end_time}");
+            $room = addslashes($entry->room->name);
+            $lecturer = addslashes($entry->lecturer->userDetails->fullName);
+            $latexContent .= "$courseCode & $courseName & $day & $time & $room & $lecturer \\\\\n";
+        }
+
+        $latexContent .= "\\bottomrule\n";
+        $latexContent .= "\\end{tabular}\n";
+        $latexContent .= "\\end{document}\n";
+
+        $filename = "timetable_{$academicYear}_{$semester}.tex";
+        return Response::make($latexContent, 200, [
+            'Content-Type' => 'text/latex',
+            'Content-Disposition' => "attachment; filename=\"$filename\"",
+        ]);
+    }
+}
+
+private function checkForConflicts($timetableData, $courses, $rooms, $lecturers, $timeSlots, $availabilities, $maxCoursesPerDay)
+{
+    $conflicts = [];
+    $scheduled = [];
+    $lecturerDailyCount = [];
+
+    foreach ($timetableData as $index => $entry) {
+        if (!$entry['course'] || !$entry['room'] || !$entry['lecturer'] || !$entry['timeSlot']) {
+            $conflicts[] = [
+                'index' => $index,
+                'type' => 'INVALID_ENTRY',
+                'description' => 'Missing or invalid course, room, lecturer, or time slot',
+            ];
+            continue;
+        }
+
+        $course = $courses->firstWhere('id', $entry['course']['id']);
+        $room = $rooms->firstWhere('id', $entry['room']['id']);
+        $lecturer = $lecturers->firstWhere('id', $entry['lecturer']['id']);
+        $timeSlot = $timeSlots->firstWhere('id', $entry['timeSlot']['id']);
+
+        // Check room capacity
+        if ($room->capacity < $course->enrollments()->count()) {
+            $conflicts[] = [
+                'index' => $index,
+                'type' => 'CAPACITY',
+                'description' => "Room {$room->name} capacity ({$room->capacity}) is insufficient for course {$course->name} (enrolled: {$course->enrollments()->count()})",
+            ];
+        }
+
+        // Check lecturer availability
+        $availability = $availabilities->where('lecturer_id', $entry['lecturer']['id'])
+            ->where('day', $entry['day'])
+            ->where('start_time', '<=', $entry['timeSlot']['startTime'])
+            ->where('end_time', '>=', $entry['timeSlot']['endTime'])
+            ->first();
+
+        if (!$availability) {
+            $conflicts[] = [
+                'index' => $index,
+                'type' => 'AVAILABILITY',
+                'description' => "Lecturer {$lecturer->userDetails->fullName} is not available on {$entry['day']} at {$entry['timeSlot']['startTime']}",
+            ];
+        }
+
+        // Check max courses per day
+        $lecturerDayKey = "{$entry['lecturer']['id']}_{$entry['day']}";
+        if (!isset($lecturerDailyCount[$lecturerDayKey])) {
+            $lecturerDailyCount[$lecturerDayKey] = 0;
+        }
+        $lecturerDailyCount[$lecturerDayKey]++;
+        if ($lecturerDailyCount[$lecturerDayKey] > $maxCoursesPerDay) {
+            $conflicts[] = [
+                'index' => $index,
+                'type' => 'MAX_COURSES',
+                'description' => "Lecturer {$lecturer->userDetails->fullName} exceeds max courses per day ($maxCoursesPerDay) on {$entry['day']}",
+            ];
+        }
+
+        // Check for room and lecturer conflicts
+        $key = "{$entry['day']}_{$entry['timeSlot']['id']}";
+        if (!isset($scheduled[$key])) {
+            $scheduled[$key] = [];
+        }
+
+        if (in_array($entry['room']['id'], $scheduled[$key])) {
+            $conflicts[] = [
+                'index' => $index,
+                'type' => 'ROOM_CONFLICT',
+                'description' => "Room {$room->name} is already scheduled on {$entry['day']} at {$entry['timeSlot']['startTime']}",
+            ];
+        }
+        if (in_array($entry['lecturer']['id'], $scheduled[$key])) {
+            $conflicts[] = [
+                'index' => $index,
+                'type' => 'LECTURER_CONFLICT',
+                'description' => "Lecturer {$lecturer->userDetails->fullName} is already scheduled on {$entry['day']} at {$entry['timeSlot']['startTime']}",
+            ];
+        }
+
+        $scheduled[$key][] = $entry['room']['id'];
+        $scheduled[$key][] = $entry['lecturer']['id'];
+    }
+
+    return $conflicts;
+}
+    
 }

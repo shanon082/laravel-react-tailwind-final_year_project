@@ -45,7 +45,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/timetable', [TimetableController::class, 'index'])->name('timetable');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::get('/feedback', [FeedbackController::class, 'index'])->name('feedback');
-    Route::get('/department', [DepartmentController::class, 'index'])->name('department');
+    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
 
     // Faculty API Routes
@@ -119,12 +119,19 @@ Route::middleware('auth')->group(function () {
     Route::put('/timetable/{id}', [TimetableController::class, 'timetables.update']);
     Route::delete('/timetable/{id}', [TimetableController::class, 'timetables.destroy']);
     Route::get('/timetable/{id}/conflicts', [TimetableController::class, 'timetables.conflicts']);
-    Route::post('/timetable/generate', [TimetableController::class, 'timetables.generate']);
+    Route::post('/timetable/generate', [TimetableController::class, 'generate']);
+    Route::get('timetable/export', [TimetableController::class, 'export'])->name('timetable.export');
+    Route::get('/timetable/{id}/timetable', [TimetableController::class, 'timetables.timetableEntries']);
+    Route::get('/timetable/{id}/availability', [TimetableController::class, 'timetables.availability']);
 
     // Notification Routes
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
+
+    // Settings Routes
+    Route::get('/settings', [SettingsController::class, 'get']);
+    Route::post('/settings', [SettingsController::class, 'update']);
 });
 
 require __DIR__ . '/auth.php';

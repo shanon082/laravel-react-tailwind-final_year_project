@@ -10,35 +10,24 @@ use Inertia\Inertia;
 class DepartmentController extends Controller
 {
     public function index(Request $request)
-    {
-        $departments = Department::with('faculty')->get();
-    
-        // Check if the request expects an Inertia response
-        if ($request->header('X-Inertia')) {
-            return Inertia::render('Departments', [
-                'departments' => $departments->map(function ($department) {
-                    return [
-                        'id' => $department->id,
-                        'name' => $department->name,
-                        'code' => $department->code,
-                        'faculty' => $department->faculty ? [
-                            'id' => $department->faculty->id,
-                            'name' => $department->faculty->name,
-                        ] : null,
-                    ];
-                }),
-                'auth' => auth()->user(),
-            ]);
-        }
-    
-        // Return JSON for API requests
-        return response()->json([
-            'data' => $departments->items(),
-            'current_page' => $departments->currentPage(),
-            'last_page' => $departments->lastPage(),
-            'total' => $departments->total(),
-        ]);
-    }
+{
+    $departments = Department::with('faculty')->get()->map(function ($department) {
+        return [
+            'id' => $department->id,
+            'name' => $department->name,
+            'code' => $department->code,
+            'faculty' => $department->faculty ? [
+                'id' => $department->faculty->id,
+                'name' => $department->faculty->name,
+            ] : null,
+        ];
+    });
+
+    return Inertia::render('Departments', [
+        'departments' => $departments,
+        'auth' => auth()->user(),
+    ]);
+}
 
     public function store(Request $request)
     {
