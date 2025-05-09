@@ -13,48 +13,48 @@ use Illuminate\Support\Facades\Log;
 class CourseController extends Controller
 {
     public function index(Request $request)
-{
-    $query = Course::query();
+    {
+        $query = Course::query();
 
-    if ($request->has('search') && $request->search) {
-        $query->where('name', 'like', '%' . $request->search . '%');
-    }
-    if ($request->has('department') && $request->department) {
-        $query->where('department', $request->department);
-    }
-    if ($request->has('year_level') && $request->yearLevel) {
-        $query->where('year_level', $request->yearLevel);
-    }
+        if ($request->has('search') && $request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+        if ($request->has('department') && $request->department) {
+            $query->where('department', $request->department);
+        }
+        if ($request->has('year_level') && $request->yearLevel) {
+            $query->where('year_level', $request->yearLevel);
+        }
 
-    $perPage = $request->input('per_page', 10);
-    $courses = $query->select('id', 'code', 'name', 'credit_units', 'department', 'lecturer', 'is_elective', 'color_code', 'year_level', 'semester')
-                     ->with(['lecturer:id,fullName', 'department:id,name'])
-                     ->paginate($perPage);
+        $perPage = $request->input('per_page', 10);
+        $courses = $query->select('id', 'code', 'name', 'credit_units', 'department', 'lecturer', 'is_elective', 'color_code', 'year_level', 'semester')
+            ->with(['lecturer:id,fullName', 'department:id,name'])
+            ->paginate($perPage);
 
-    if ($request->header('X-Inertia')) {
-        return Inertia::render('Courses', [
-            'coursesResponse' => [
-                'data' => $courses->items(),
-                'current_page' => $courses->currentPage(),
-                'last_page' => $courses->lastPage(),
-                'total' => $courses->total(),
-            ],
-            'auth' => auth()->user(),
-            'filters' => [
-                'search' => $request->search ?? '',
-                'department' => $request->department ?? '',
-                'yearLevel' => $request->yearLevel ?? '',
-            ],
+        if ($request->header('X-Inertia')) {
+            return Inertia::render('Courses', [
+                'coursesResponse' => [
+                    'data' => $courses->items(),
+                    'current_page' => $courses->currentPage(),
+                    'last_page' => $courses->lastPage(),
+                    'total' => $courses->total(),
+                ],
+                'auth' => auth()->user(),
+                'filters' => [
+                    'search' => $request->search ?? '',
+                    'department' => $request->department ?? '',
+                    'yearLevel' => $request->yearLevel ?? '',
+                ],
+            ]);
+        }
+
+        return response()->json([
+            'data' => $courses->items(),
+            'current_page' => $courses->currentPage(),
+            'last_page' => $courses->lastPage(),
+            'total' => $courses->total(),
         ]);
     }
-
-    return response()->json([
-        'data' => $courses->items(),
-        'current_page' => $courses->currentPage(),
-        'last_page' => $courses->lastPage(),
-        'total' => $courses->total(),
-    ]);
-}
 
     public function show($id)
     {
@@ -95,18 +95,20 @@ class CourseController extends Controller
             'year_level' => 'required|integer|min:1|max:6',
             'semester' => 'required|integer|min:1|max:2',
         ]);
-
+    
         $course->update($validated);
-
-        $users = \App\Models\User::where('role', 'admin')->orWhere('role', 'lecturer')->get();
-    foreach ($users as $user) {
-        $user->notify(new CourseUpdated($course));
+    
+        // $users = \App\Models\User::where('role', 'admin')->orWhere('role', 'lecturer')->get();
+        // foreach ($users as $user) {
+        //     $user->notify(new CourseUpdated($course));
+        // }
+    
+        if ($request->header('X-Inertia')) {
+            return redirect()->route('courses')->with('success', 'Course updated successfully');
+        }
+    
+        return response()->json(['message' => 'Course updated successfully']);
     }
-    }
-    // return back()->with('success', 'Course updated.');
-
-    //     return redirect()->route('courses')->with('success', 'Course updated successfully');
-    // }
 
     public function destroy($id)
     {

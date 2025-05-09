@@ -4,8 +4,7 @@ namespace App\Notifications;
 
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
-use Illuminate\Notifications\Messages\DatabaseMessage;
-use Illuminate\Notifications\Messages\BroadcastMessage;
+use Illuminate\Notifications\Messages\MailMessage;
 
 class CourseUpdated extends Notification
 {
@@ -20,26 +19,15 @@ class CourseUpdated extends Notification
 
     public function via($notifiable)
     {
-        return ['database', 'broadcast'];
+        return ['database']; // Store in notifications table
     }
 
-    public function toDatabase($notifiable)
+    public function toArray($notifiable)
     {
         return [
             'message' => "Course '{$this->course->name}' has been updated.",
             'link' => "/courses/{$this->course->id}",
             'course_id' => $this->course->id,
         ];
-    }
-
-    public function toBroadcast($notifiable)
-    {
-        return new BroadcastMessage([
-            'id' => $this->id,
-            'type' => $this->type,
-            'data' => $this->toDatabase($notifiable),
-            'created_at' => now()->toDateTimeString(),
-            'read_at' => null,
-        ]);
     }
 }

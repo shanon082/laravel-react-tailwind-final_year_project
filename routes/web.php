@@ -131,8 +131,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 
     // Settings Routes
-    Route::get('/settings', [SettingsController::class, 'get']);
-    Route::post('/settings', [SettingsController::class, 'update']);
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+    Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
 });
 
 require __DIR__ . '/auth.php';
