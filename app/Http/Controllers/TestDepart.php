@@ -3,31 +3,56 @@
 namespace App\Http\Controllers;
 
 use App\Models\Department;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 use Inertia\Inertia;
 
-class DepartmentController extends Controller
+class TestDepart extends Controller
 {
     public function index(Request $request)
-{
-    $departments = Department::with('faculty')->get()->map(function ($department) {
-        return [
-            'id' => $department->id,
-            'name' => $department->name,
-            'code' => $department->code,
-            'faculty' => $department->faculty ? [
-                'id' => $department->faculty->id,
-                'name' => $department->faculty->name,
-            ] : null,
-        ];
-    });
-
-    return Inertia::render('Departments', [
-        'departments' => $departments,
-        'auth' => auth()->user(),
-    ]);
-}
+    {
+        $perPage = $request->input('per_page', 10);
+        $query = Department::with('faculty');
+    
+        if ($request->has('search') && $request->search) {
+            $query->where('name', 'like', '%' . $request->search . '%');
+        }
+    
+        $departments = $query->paginate($perPage)->through(function ($department) {
+            return [
+                'id' => $department->id,
+                'name' => $department->name,
+                'code' => $department->code,
+                'faculty' => $department->faculty ? [
+                    'id' => $department->faculty->id,
+                    'name' => $department->faculty->name,
+                ] : null,
+                'faculty_id' => $department->faculty_id,
+            ];
+        });
+    
+        if ($request->header('X-Inertia')) {
+            return Inertia::render('Departments', [
+                'departments' => [
+                    'data' => $departments->items(),
+                    'current_page' => $departments->currentPage(),
+                    'last_page' => $departments->lastPage(),
+                    'total' => $departments->total(),
+                ],
+                'auth' => auth()->user(),
+                'filters' => [
+                    'search' => $request->search ?? '',
+                ],
+            ]);
+        }
+    
+        return response()->json([
+            'data' => $departments->items(),
+            'current_page' => $departments->currentPage(),
+            'last_page' => $departments->lastPage(),
+            'total' => $departments->total(),
+        ]);
+    }
 
     public function store(Request $request)
     {

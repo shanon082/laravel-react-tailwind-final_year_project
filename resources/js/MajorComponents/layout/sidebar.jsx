@@ -63,10 +63,10 @@ const Sidebar = () => {
     },
     {
       name: "Departments",
-      path: "/departments",
+      path: "/department",
       icon: <Activity className="h-5 w-5" />,
       roles: [UserRole.ADMIN],
-      tooltip: "View department",
+      tooltip: "View departments",
     },
     {
       name: "Rooms",

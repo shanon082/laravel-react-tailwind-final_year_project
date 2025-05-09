@@ -11,6 +11,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\RoomController;
 use App\Http\Controllers\SettingsController;
 use App\Http\Controllers\StatsController;
+use App\Http\Controllers\TestDepart;
 use App\Http\Controllers\TimetableController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
@@ -45,7 +46,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/timetable', [TimetableController::class, 'index'])->name('timetable');
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::get('/feedback', [FeedbackController::class, 'index'])->name('feedback');
-    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
+    //Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
 
     // Faculty API Routes
@@ -60,14 +61,14 @@ Route::middleware('auth')->group(function () {
     Route::get('/faculties/{id}/students', [FacultyController::class, 'students'])->name('faculties.students');
 
     // Department API Routes
-    Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
-    Route::get('/departments/{id}', [DepartmentController::class, 'show'])->name('departments.show');
-    Route::post('/departments', [DepartmentController::class, 'store'])->name('departments.store');
-    Route::put('/departments/{id}', [DepartmentController::class, 'update'])->name('departments.update');
-    Route::delete('/departments/{id}', [DepartmentController::class, 'destroy'])->name('departments.destroy');
-    Route::get('/departments/{id}/lecturers', [DepartmentController::class, 'lecturers'])->name('departments.lecturers');
-    Route::get('/departments/{id}/courses', [DepartmentController::class, 'courses'])->name('departments.courses');
-    Route::get('/departments/{id}/students', [DepartmentController::class, 'students'])->name('departments.students');
+    Route::get('/department', [TestDepart::class, 'index'])->name('departments');
+    Route::get('/department/{id}', [TestDepart::class, 'show'])->name('departments.show');
+    Route::post('/department', [TestDepart::class, 'store'])->name('departments.store');
+    Route::put('/department/{id}', [TestDepart::class, 'update'])->name('departments.update');
+    Route::delete('/department/{id}', [TestDepart::class, 'destroy'])->name('departments.destroy');
+    Route::get('/department/{id}/lecturers', [TestDepart::class, 'lecturers'])->name('departments.lecturers');
+    Route::get('/department/{id}/courses', [TestDepart::class, 'courses'])->name('departments.courses');
+    Route::get('/department/{id}/students', [TestDepart::class, 'students'])->name('departments.students');
 
     // Role-Based Dashboards
     Route::middleware('role:admin')->get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
