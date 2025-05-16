@@ -17,6 +17,7 @@ import { queryClient } from "../../lib/queryClient";
 import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
 import TimetableGrid from "./timetable-grid";
+import SecondaryButton from "@/Components/SecondaryButton";
 
 const TimetableGenerator = ({ academicYear, semester }) => {
   const { toast } = useToast();
@@ -26,7 +27,7 @@ const TimetableGenerator = ({ academicYear, semester }) => {
   const [conflicts, setConflicts] = useState([]);
   const [filter, setFilter] = useState({
     academic_year: academicYear,
-    semester: term,
+    semester: semester,
     day: null,
     course_id: null,
     room_id: null,
@@ -65,7 +66,6 @@ const TimetableGenerator = ({ academicYear, semester }) => {
           {
             preserveState: true,
             onSuccess: (page) => {
-              console.log('Generate success:', page.props);
               setTimetable(page.props.timetable || []);
               setConflicts(page.props.conflicts || []);
               setFilter({
@@ -76,7 +76,6 @@ const TimetableGenerator = ({ academicYear, semester }) => {
               resolve(page.props);
             },
             onError: (errors) => {
-              console.error('Generate error:', errors);
               reject(new Error(errors.message || 'Failed to generate timetable'));
             },
           }
@@ -119,7 +118,6 @@ const TimetableGenerator = ({ academicYear, semester }) => {
   });
 
   const handleGenerate = () => {
-    console.log('Generating timetable with:', { academic_year: year, semester: term });
     generateMutation.mutate({
       academic_year: year,
       semester: term,
@@ -135,26 +133,20 @@ const TimetableGenerator = ({ academicYear, semester }) => {
     router.visit(`/timetable?academic_year=${year}&semester=${term}`);
   };
 
-  // Update year and term based on settings
+  // Update year and term based on settings once loaded
   useEffect(() => {
     if (settings) {
       setYear(settings.academic_year || academicYear);
-      setTerm(settings.semesters?.[0]?.name || semester);
-      setFilter((prev) => ({
-        ...prev,
-        academic_year: settings.academic_year || academicYear,
-        semester: settings.semesters?.[0]?.name || semester,
-      }));
+      if (settings.semesters && settings.semesters.length > 0) {
+        setTerm(settings.semesters[0].name);
+        setFilter((prev) => ({
+          ...prev,
+          academic_year: settings.academic_year || academicYear,
+          semester: settings.semesters[0].name,
+        }));
+      }
     }
   }, [settings]);
-
-  // Debug states
-  useEffect(() => {
-    console.log('Timetable state:', timetable);
-    console.log('Conflicts state:', conflicts);
-    console.log('Time slots:', timeSlots);
-    console.log('Settings:', settings);
-  }, [timetable, conflicts, timeSlots, settings]);
 
   return (
     <div>
@@ -186,7 +178,7 @@ const TimetableGenerator = ({ academicYear, semester }) => {
                     <SelectValue placeholder="Select semester" />
                   </SelectTrigger>
                   <SelectContent>
-                    {settings?.semesters?.map((sem) => (
+                    {(settings?.semesters ?? []).map((sem) => (
                       <SelectItem key={sem.name} value={sem.name}>
                         {sem.name}
                       </SelectItem>
@@ -221,9 +213,9 @@ const TimetableGenerator = ({ academicYear, semester }) => {
           </div>
         </CardContent>
         <CardFooter className="justify-between">
-          <Button variant="outline" onClick={handleCancel}>
+          <SecondaryButton variant="outline" onClick={handleCancel}>
             Cancel
-          </Button>
+          </SecondaryButton>
           <div className="flex space-x-2">
             <Button
               onClick={() => handleExport('csv')}

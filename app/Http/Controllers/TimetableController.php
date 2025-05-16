@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-
+use App\Services\TimetableGeneratorService;
 use App\Http\Controllers\Controller;
 use App\Models\TimetableEntry;
 use App\Models\Conflict;
@@ -428,261 +428,261 @@ public function save(Request $request)
         return response()->json(['error' => 'Failed to save timetable'], 500);
     }
 }
-public function generate(Request $request)
-{
-    if (!Auth::user()->isAdmin()) {
-        Log::warning('Unauthorized timetable generation attempt', ['user_id' => Auth::id()]);
-        return response()->json(['error' => 'Unauthorized access'], 403);
-    }
+// public function generate(Request $request)
+// {
+//     if (!Auth::user()->isAdmin()) {
+//         Log::warning('Unauthorized timetable generation attempt', ['user_id' => Auth::id()]);
+//         return response()->json(['error' => 'Unauthorized access'], 403);
+//     }
 
-    try {
-        Log::info('Starting timetable generation', ['request' => $request->all()]);
+//     try {
+//         Log::info('Starting timetable generation', ['request' => $request->all()]);
 
-        // Validate input
-        $validated = $request->validate([
-            'academic_year' => 'required|string|max:255',
-            'semester' => 'required|in:First,Second,Third',
-        ]);
+//         // Validate input
+//         $validated = $request->validate([
+//             'academic_year' => 'required|string|max:255',
+//             'semester' => 'required|in:First,Second,Third',
+//         ]);
 
-        $academicYear = $validated['academic_year'];
-        $semester = $validated['semester'];
+//         $academicYear = $validated['academic_year'];
+//         $semester = $validated['semester'];
 
-        // Fetch settings
-        $settings = Setting::all()->pluck('value', 'key')->toArray();
-        $timeSlotsData = isset($settings['time_slots']) ? json_decode($settings['time_slots'], true) : [];
-        $lunchBreak = isset($settings['lunch_break']) ? json_decode($settings['lunch_break'], true) : null;
-        $maxCoursesPerDay = isset($settings['max_courses_per_day']) ? json_decode($settings['max_courses_per_day'], true) : 4;
+//         // Fetch settings
+//         $settings = Setting::all()->pluck('value', 'key')->toArray();
+//         $timeSlotsData = isset($settings['time_slots']) ? json_decode($settings['time_slots'], true) : [];
+//         $lunchBreak = isset($settings['lunch_break']) ? json_decode($settings['lunch_break'], true) : null;
+//         $maxCoursesPerDay = isset($settings['max_courses_per_day']) ? json_decode($settings['max_courses_per_day'], true) : 4;
 
-        // Fetch data
-        $courses = Course::where('semester', $semester)->get();
-        $rooms = Room::all();
-        $lecturers = Lecturer::all();
-        $timeSlots = TimeSlot::all();
-        $availabilities = LecturerAvailability::all();
+//         // Fetch data
+//         $courses = Course::where('semester', $semester)->get();
+//         $rooms = Room::all();
+//         $lecturers = Lecturer::all();
+//         $timeSlots = TimeSlot::all();
+//         $availabilities = LecturerAvailability::all();
 
-        Log::info('Data counts', [
-            'courses' => $courses->count(),
-            'rooms' => $rooms->count(),
-            'lecturers' => $lecturers->count(),
-            'time_slots' => $timeSlots->count(),
-            'availabilities' => $availabilities->count(),
-        ]);
+//         Log::info('Data counts', [
+//             'courses' => $courses->count(),
+//             'rooms' => $rooms->count(),
+//             'lecturers' => $lecturers->count(),
+//             'time_slots' => $timeSlots->count(),
+//             'availabilities' => $availabilities->count(),
+//         ]);
 
-        // Validate data existence
-        if ($courses->isEmpty()) {
-            Log::warning('No courses found for semester: ' . $semester);
-            return response()->json(['error' => 'No courses available for the selected semester'], 400);
-        }
-        if ($rooms->isEmpty() || $lecturers->isEmpty() || $timeSlots->isEmpty()) {
-            Log::warning('Missing required data: rooms, lecturers, or time slots');
-            return response()->json(['error' => 'Missing required data (rooms, lecturers, or time slots)'], 400);
-        }
+//         // Validate data existence
+//         if ($courses->isEmpty()) {
+//             Log::warning('No courses found for semester: ' . $semester);
+//             return response()->json(['error' => 'No courses available for the selected semester'], 400);
+//         }
+//         if ($rooms->isEmpty() || $lecturers->isEmpty() || $timeSlots->isEmpty()) {
+//             Log::warning('Missing required data: rooms, lecturers, or time slots');
+//             return response()->json(['error' => 'Missing required data (rooms, lecturers, or time slots)'], 400);
+//         }
 
-        // Build OpenAI prompt
-        $prompt = "Generate a university timetable for academic year $academicYear, semester $semester. Ensure no conflicts in room or lecturer scheduling and respect lecturer availability. Return the timetable as a JSON array of objects with fields: course_id, lecturer_id, room_id, time_slot_id, day, academic_year, semester.\n\n";
-        $prompt .= "Courses (ID, Code, Name, Enrolled Students):\n" . $courses->map(function ($course) {
-            return "[{$course->id}, {$course->code}, {$course->name}, {$course->enrollments()->count()}]";
-        })->implode("\n") . "\n\n";
-        $prompt .= "Rooms (ID, Name, Capacity):\n" . $rooms->map(function ($room) {
-            return "[{$room->id}, {$room->name}, {$room->capacity}]";
-        })->implode("\n") . "\n\n";
-        $prompt .= "Lecturers (ID, Name):\n" . $lecturers->map(function ($lecturer) {
-            return "[{$lecturer->id}, {$lecturer->userDetails->fullName}]";
-        })->implode("\n") . "\n\n";
-        $prompt .= "Time Slots (ID, Start, End):\n" . $timeSlotsData->map(function ($slot, $index) {
-            return "[{$index}, {$slot['start_time']}, {$slot['end_time']}]";
-        })->implode("\n") . "\n\n";
-        $prompt .= "Availabilities (Lecturer ID, Day, Start, End):\n" . $availabilities->map(function ($avail) {
-            return "[{$avail->lecturer_id}, {$avail->day}, {$avail->start_time}, {$avail->end_time}]";
-        })->implode("\n") . "\n\n";
-        $prompt .= "Constraints:\n";
-        $prompt .= "- Ensure rooms have sufficient capacity for the number of students enrolled in each course.\n";
-        $prompt .= "- Respect lecturer availability strictly (only schedule within their available times).\n";
-        $prompt .= "- Avoid scheduling the same lecturer or room for multiple courses at the same time on the same day.\n";
-        $prompt .= "- Limit each lecturer to a maximum of $maxCoursesPerDay courses per day.\n";
-        $prompt .= "- Valid days are: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY.\n";
-        $prompt .= "Output format: ```json\n[]\n```";
+//         // Build OpenAI prompt
+//         $prompt = "Generate a university timetable for academic year $academicYear, semester $semester. Ensure no conflicts in room or lecturer scheduling and respect lecturer availability. Return the timetable as a JSON array of objects with fields: course_id, lecturer_id, room_id, time_slot_id, day, academic_year, semester.\n\n";
+//         $prompt .= "Courses (ID, Code, Name, Enrolled Students):\n" . $courses->map(function ($course) {
+//             return "[{$course->id}, {$course->code}, {$course->name}, {$course->enrollments()->count()}]";
+//         })->implode("\n") . "\n\n";
+//         $prompt .= "Rooms (ID, Name, Capacity):\n" . $rooms->map(function ($room) {
+//             return "[{$room->id}, {$room->name}, {$room->capacity}]";
+//         })->implode("\n") . "\n\n";
+//         $prompt .= "Lecturers (ID, Name):\n" . $lecturers->map(function ($lecturer) {
+//             return "[{$lecturer->id}, {$lecturer->userDetails->fullName}]";
+//         })->implode("\n") . "\n\n";
+//         $prompt .= "Time Slots (ID, Start, End):\n" . $timeSlotsData->map(function ($slot, $index) {
+//             return "[{$index}, {$slot['start_time']}, {$slot['end_time']}]";
+//         })->implode("\n") . "\n\n";
+//         $prompt .= "Availabilities (Lecturer ID, Day, Start, End):\n" . $availabilities->map(function ($avail) {
+//             return "[{$avail->lecturer_id}, {$avail->day}, {$avail->start_time}, {$avail->end_time}]";
+//         })->implode("\n") . "\n\n";
+//         $prompt .= "Constraints:\n";
+//         $prompt .= "- Ensure rooms have sufficient capacity for the number of students enrolled in each course.\n";
+//         $prompt .= "- Respect lecturer availability strictly (only schedule within their available times).\n";
+//         $prompt .= "- Avoid scheduling the same lecturer or room for multiple courses at the same time on the same day.\n";
+//         $prompt .= "- Limit each lecturer to a maximum of $maxCoursesPerDay courses per day.\n";
+//         $prompt .= "- Valid days are: MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY.\n";
+//         $prompt .= "Output format: ```json\n[]\n```";
 
-        // Call OpenAI API
-        $openaiApiKey = env('OPENAI_API_KEY');
-        if (!$openaiApiKey) {
-            Log::error('OPENAI_API_KEY is not set in .env');
-            return response()->json(['error' => 'OpenAI API key is not configured'], 500);
-        }
+//         // Call OpenAI API
+//         $openaiApiKey = env('OPENAI_API_KEY');
+//         if (!$openaiApiKey) {
+//             Log::error('OPENAI_API_KEY is not set in .env');
+//             return response()->json(['error' => 'OpenAI API key is not configured'], 500);
+//         }
 
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . $openaiApiKey,
-            'Content-Type' => 'application/json',
-        ])->timeout(30)->post('https://api.openai.com/v1/chat/completions', [
-            'model' => 'gpt-3.5-turbo',
-            'messages' => [
-                ['role' => 'system', 'content' => 'You are a timetable scheduling assistant. Generate a conflict-free timetable in JSON format.'],
-                ['role' => 'user', 'content' => $prompt],
-            ],
-            'max_tokens' => 4000,
-            'temperature' => 0.5,
-        ]);
+//         $response = Http::withHeaders([
+//             'Authorization' => 'Bearer ' . $openaiApiKey,
+//             'Content-Type' => 'application/json',
+//         ])->timeout(30)->post('https://api.openai.com/v1/chat/completions', [
+//             'model' => 'gpt-3.5-turbo',
+//             'messages' => [
+//                 ['role' => 'system', 'content' => 'You are a timetable scheduling assistant. Generate a conflict-free timetable in JSON format.'],
+//                 ['role' => 'user', 'content' => $prompt],
+//             ],
+//             'max_tokens' => 4000,
+//             'temperature' => 0.5,
+//         ]);
 
-        if ($response->failed()) {
-            Log::error('OpenAI API call failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-            return response()->json(['error' => 'Failed to generate timetable with OpenAI'], 500);
-        }
+//         if ($response->failed()) {
+//             Log::error('OpenAI API call failed', [
+//                 'status' => $response->status(),
+//                 'body' => $response->body(),
+//             ]);
+//             return response()->json(['error' => 'Failed to generate timetable with OpenAI'], 500);
+//         }
 
-        // Parse OpenAI response
-        $aiResponse = $response->json();
-        $content = $aiResponse['choices'][0]['message']['content'] ?? '';
-        Log::info('OpenAI response content', ['content' => $content]);
+//         // Parse OpenAI response
+//         $aiResponse = $response->json();
+//         $content = $aiResponse['choices'][0]['message']['content'] ?? '';
+//         Log::info('OpenAI response content', ['content' => $content]);
 
-        preg_match('/```json\n([\s\S]*?)\n```/', $content, $matches);
-        if (empty($matches[1])) {
-            try {
-                $timetableData = json_decode($content, true);
-                if (json_last_error() === JSON_ERROR_NONE && is_array($timetableData)) {
-                    Log::info('Parsed JSON directly from content');
-                } else {
-                    throw new \Exception('Invalid JSON format');
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to parse JSON from OpenAI response', [
-                    'content' => $content,
-                    'error' => $e->getMessage(),
-                ]);
-                return response()->json(['error' => 'Invalid OpenAI response format'], 500);
-            }
-        } else {
-            $timetableData = json_decode($matches[1], true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                Log::error('JSON decoding failed', [
-                    'error' => json_last_error_msg(),
-                    'data' => $matches[1],
-                ]);
-                return response()->json(['error' => 'Invalid JSON in OpenAI response'], 500);
-            }
-        }
+//         preg_match('/```json\n([\s\S]*?)\n```/', $content, $matches);
+//         if (empty($matches[1])) {
+//             try {
+//                 $timetableData = json_decode($content, true);
+//                 if (json_last_error() === JSON_ERROR_NONE && is_array($timetableData)) {
+//                     Log::info('Parsed JSON directly from content');
+//                 } else {
+//                     throw new \Exception('Invalid JSON format');
+//                 }
+//             } catch (\Exception $e) {
+//                 Log::error('Failed to parse JSON from OpenAI response', [
+//                     'content' => $content,
+//                     'error' => $e->getMessage(),
+//                 ]);
+//                 return response()->json(['error' => 'Invalid OpenAI response format'], 500);
+//             }
+//         } else {
+//             $timetableData = json_decode($matches[1], true);
+//             if (json_last_error() !== JSON_ERROR_NONE) {
+//                 Log::error('JSON decoding failed', [
+//                     'error' => json_last_error_msg(),
+//                     'data' => $matches[1],
+//                 ]);
+//                 return response()->json(['error' => 'Invalid JSON in OpenAI response'], 500);
+//             }
+//         }
 
-        if (!is_array($timetableData)) {
-            Log::error('Timetable data is not an array', ['data' => $timetableData]);
-            return response()->json(['error' => 'Invalid timetable data format'], 500);
-        }
+//         if (!is_array($timetableData)) {
+//             Log::error('Timetable data is not an array', ['data' => $timetableData]);
+//             return response()->json(['error' => 'Invalid timetable data format'], 500);
+//         }
 
-        // Enrich timetable data with related information
-        $enrichedTimetable = array_map(function ($entry) use ($courses, $rooms, $lecturers, $timeSlotsData) {
-            $course = $courses->firstWhere('id', $entry['course_id']);
-            $room = $rooms->firstWhere('id', $entry['room_id']);
-            $lecturer = $lecturers->firstWhere('id', $entry['lecturer_id']);
-            $timeSlotIndex = $entry['time_slot_id'];
-            $timeSlot = isset($timeSlotsData[$timeSlotIndex]) ? $timeSlotsData[$timeSlotIndex] : null;
+//         // Enrich timetable data with related information
+//         $enrichedTimetable = array_map(function ($entry) use ($courses, $rooms, $lecturers, $timeSlotsData) {
+//             $course = $courses->firstWhere('id', $entry['course_id']);
+//             $room = $rooms->firstWhere('id', $entry['room_id']);
+//             $lecturer = $lecturers->firstWhere('id', $entry['lecturer_id']);
+//             $timeSlotIndex = $entry['time_slot_id'];
+//             $timeSlot = isset($timeSlotsData[$timeSlotIndex]) ? $timeSlotsData[$timeSlotIndex] : null;
 
-            return [
-                'id' => uniqid(),
-                'course' => $course ? [
-                    'id' => $course->id,
-                    'name' => $course->name,
-                    'code' => $course->code,
-                    'color_code' => $course->color_code,
-                    'department' => $course->department,
-                    'level' => $course->year_level,
-                ] : null,
-                'room' => $room ? [
-                    'id' => $room->id,
-                    'name' => $room->name,
-                ] : null,
-                'lecturer' => $lecturer ? [
-                    'id' => $lecturer->id,
-                    'userDetails' => [
-                        'fullName' => $lecturer->userDetails->fullName,
-                    ],
-                ] : null,
-                'timeSlot' => $timeSlot ? [
-                    'id' => $timeSlotIndex,
-                    'startTime' => $timeSlot['start_time'],
-                    'endTime' => $timeSlot['end_time'],
-                ] : null,
-                'day' => $entry['day'],
-                'academic_year' => $entry['academic_year'],
-                'semester' => $entry['semester'],
-                'hasConflict' => false,
-                'conflictType' => null,
-            ];
-        }, $timetableData);
+//             return [
+//                 'id' => uniqid(),
+//                 'course' => $course ? [
+//                     'id' => $course->id,
+//                     'name' => $course->name,
+//                     'code' => $course->code,
+//                     'color_code' => $course->color_code,
+//                     'department' => $course->department,
+//                     'level' => $course->year_level,
+//                 ] : null,
+//                 'room' => $room ? [
+//                     'id' => $room->id,
+//                     'name' => $room->name,
+//                 ] : null,
+//                 'lecturer' => $lecturer ? [
+//                     'id' => $lecturer->id,
+//                     'userDetails' => [
+//                         'fullName' => $lecturer->userDetails->fullName,
+//                     ],
+//                 ] : null,
+//                 'timeSlot' => $timeSlot ? [
+//                     'id' => $timeSlotIndex,
+//                     'startTime' => $timeSlot['start_time'],
+//                     'endTime' => $timeSlot['end_time'],
+//                 ] : null,
+//                 'day' => $entry['day'],
+//                 'academic_year' => $entry['academic_year'],
+//                 'semester' => $entry['semester'],
+//                 'hasConflict' => false,
+//                 'conflictType' => null,
+//             ];
+//         }, $timetableData);
 
-        // Validate and check for conflicts
-        $conflicts = $this->checkForConflicts($enrichedTimetable, $courses, $rooms, $lecturers, $timeSlots, $availabilities, $maxCoursesPerDay);
+//         // Validate and check for conflicts
+//         $conflicts = $this->checkForConflicts($enrichedTimetable, $courses, $rooms, $lecturers, $timeSlots, $availabilities, $maxCoursesPerDay);
 
-        // Update entries with conflict information
-        $enrichedTimetable = array_map(function ($entry, $index) use ($conflicts) {
-            $conflict = collect($conflicts)->firstWhere('index', $index);
-            if ($conflict) {
-                $entry['hasConflict'] = true;
-                $entry['conflictType'] = $conflict['type'];
-            }
-            return $entry;
-        }, $enrichedTimetable, array_keys($enrichedTimetable));
+//         // Update entries with conflict information
+//         $enrichedTimetable = array_map(function ($entry, $index) use ($conflicts) {
+//             $conflict = collect($conflicts)->firstWhere('index', $index);
+//             if ($conflict) {
+//                 $entry['hasConflict'] = true;
+//                 $entry['conflictType'] = $conflict['type'];
+//             }
+//             return $entry;
+//         }, $enrichedTimetable, array_keys($enrichedTimetable));
 
-        // Save to timetable_entries
-        DB::beginTransaction();
-        try {
-            TimetableEntry::where('academic_year', $academicYear)
-                ->where('semester', $semester)
-                ->delete();
+//         // Save to timetable_entries
+//         DB::beginTransaction();
+//         try {
+//             TimetableEntry::where('academic_year', $academicYear)
+//                 ->where('semester', $semester)
+//                 ->delete();
 
-            foreach ($timetableData as $entry) {
-                TimetableEntry::create([
-                    'course_id' => $entry['course_id'],
-                    'lecturer_id' => $entry['lecturer_id'],
-                    'room_id' => $entry['room_id'],
-                    'time_slot_id' => $entry['time_slot_id'],
-                    'day' => $entry['day'],
-                    'academic_year' => $entry['academic_year'],
-                    'semester' => $entry['semester'],
-                ]);
-            }
+//             foreach ($timetableData as $entry) {
+//                 TimetableEntry::create([
+//                     'course_id' => $entry['course_id'],
+//                     'lecturer_id' => $entry['lecturer_id'],
+//                     'room_id' => $entry['room_id'],
+//                     'time_slot_id' => $entry['time_slot_id'],
+//                     'day' => $entry['day'],
+//                     'academic_year' => $entry['academic_year'],
+//                     'semester' => $entry['semester'],
+//                 ]);
+//             }
 
-            DB::commit();
-            Log::info('Timetable saved to timetable_entries', [
-                'academic_year' => $academicYear,
-                'semester' => $semester,
-                'entries' => count($timetableData),
-            ]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Failed to save timetable', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            return response()->json(['error' => 'Failed to save timetable'], 500);
-        }
+//             DB::commit();
+//             Log::info('Timetable saved to timetable_entries', [
+//                 'academic_year' => $academicYear,
+//                 'semester' => $semester,
+//                 'entries' => count($timetableData),
+//             ]);
+//         } catch (\Exception $e) {
+//             DB::rollBack();
+//             Log::error('Failed to save timetable', [
+//                 'error' => $e->getMessage(),
+//                 'trace' => $e->getTraceAsString(),
+//             ]);
+//             return response()->json(['error' => 'Failed to save timetable'], 500);
+//         }
 
-        // Create notification
-        Notification::create([
-            'user_id' => Auth::id(),
-            'title' => 'Timetable Generated',
-            'message' => count($conflicts) > 0
-                ? 'Timetable generated with ' . count($conflicts) . ' conflicts. Please review.'
-                : 'Timetable generated and saved successfully for ' . $academicYear . ', ' . $semester . '.',
-            'type' => count($conflicts) > 0 ? 'warning' : 'success',
-        ]);
+//         // Create notification
+//         Notification::create([
+//             'user_id' => Auth::id(),
+//             'title' => 'Timetable Generated',
+//             'message' => count($conflicts) > 0
+//                 ? 'Timetable generated with ' . count($conflicts) . ' conflicts. Please review.'
+//                 : 'Timetable generated and saved successfully for ' . $academicYear . ', ' . $semester . '.',
+//             'type' => count($conflicts) > 0 ? 'warning' : 'success',
+//         ]);
 
-        // Return JSON response
-        return response()->json([
-            'timetable' => $enrichedTimetable,
-            'conflicts' => $conflicts,
-            'message' => count($conflicts) > 0
-                ? 'Timetable generated with conflicts'
-                : 'Timetable generated and saved successfully',
-        ], 200);
+//         // Return JSON response
+//         return response()->json([
+//             'timetable' => $enrichedTimetable,
+//             'conflicts' => $conflicts,
+//             'message' => count($conflicts) > 0
+//                 ? 'Timetable generated with conflicts'
+//                 : 'Timetable generated and saved successfully',
+//         ], 200);
 
-    } catch (\Exception $e) {
-        Log::error('Error in timetable generation', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-        ]);
-        return response()->json(['error' => 'Error generating timetable: ' . $e->getMessage()], 500);
-    }
-}
+//     } catch (\Exception $e) {
+//         Log::error('Error in timetable generation', [
+//             'error' => $e->getMessage(),
+//             'trace' => $e->getTraceAsString(),
+//         ]);
+//         return response()->json(['error' => 'Error generating timetable: ' . $e->getMessage()], 500);
+//     }
+// }
 
 public function export(Request $request)
 {
@@ -865,6 +865,14 @@ private function checkForConflicts($timetableData, $courses, $rooms, $lecturers,
     }
 
     return $conflicts;
+}
+
+public function generate()
+{
+    $generator = new TimetableGeneratorService();
+    $generator->generate();
+
+    return back()->with('success', 'Timetable generation complete.');
 }
     
 }

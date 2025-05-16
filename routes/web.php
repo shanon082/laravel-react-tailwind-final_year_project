@@ -16,6 +16,7 @@ use App\Http\Controllers\TimetableController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Http\Controllers\TimeSlotController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -48,6 +49,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/feedback', [FeedbackController::class, 'index'])->name('feedback');
     //Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
+    Route::get('/timeslots', [TimeSlotController::class, 'index']);
 
     // Faculty API Routes
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
