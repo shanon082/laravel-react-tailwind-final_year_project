@@ -11,6 +11,7 @@ import { useToast } from "../../hooks/use-toast";
 import { useState } from 'react';
 import Layout from '@/MajorComponents/layout/layout';
 import SecondaryButton from '@/Components/SecondaryButton';
+import { getCurrentAcademicInfo } from "../../utils/academicInfo";
 
 export default function StudentDashboard({ auth }) {
 
@@ -20,10 +21,26 @@ export default function StudentDashboard({ auth }) {
     viewType: 'week'
   });
 
-  // Get the current academic term info
-  const academicYear = "2023-2024";
-  const semester = "First";
-  const currentWeek = "3";
+  // Fetch settings for academic information
+  const { data: settings, isLoading: isSettingsLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const response = await fetch('/settings');
+      const data = await response.json();
+      return data.settings;
+    },
+  });
+
+  const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings);
+
+  // Show loading state while data is being fetched
+  if (isSettingsLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // Get enrolled courses
   const { data: enrolledCourses, isLoading: coursesLoading } = useQuery({
@@ -108,10 +125,10 @@ export default function StudentDashboard({ auth }) {
                 <span>Academic Year: {academicYear}</span>
               </div>
               <div className="mt-2 flex items-center text-sm text-gray-500">
-                <span>Semester: {semester}</span>
+                <span>{semester}</span>
               </div>
               <div className="mt-2 flex items-center text-sm text-gray-500">
-                <span>Week: {currentWeek}</span>
+                <span>{currentWeek}</span>
               </div>
             </div>
           </div>
@@ -133,9 +150,9 @@ export default function StudentDashboard({ auth }) {
           <TabsContent value="timetable" className="mt-6">
             <TimetableGrid
               filter={{
-                // For a student dashboard, we'd filter by their enrolled courses
-                academicYear,
-                semester
+                academic_year: academicYear,
+                semester: semesterName,
+                // ...other filters
               }}
               viewType="week"
             />

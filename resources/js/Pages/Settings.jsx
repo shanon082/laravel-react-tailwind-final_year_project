@@ -19,7 +19,8 @@ import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
 export default function Settings({ auth, settings }) {
   const { toast } = useToast();
-  const [formData, setFormData] = useState(settings || {
+
+  const defaultSettings = {
     academic_year: '2023-2024',
     semesters: [
       { name: 'First', start_date: '2023-09-01', end_date: '2023-12-15' },
@@ -39,52 +40,61 @@ export default function Settings({ auth, settings }) {
     notifications: { email: true, in_app: true },
     export_format: 'csv',
     theme: { primary_color: '#4B5EAA', secondary_color: '#FF5733' },
+  };
+
+  const [formData, setFormData] = useState({
+    ...defaultSettings,
+    ...settings,
+    semesters: settings?.semesters ?? defaultSettings.semesters,
+    time_slots: settings?.time_slots ?? defaultSettings.time_slots,
+    lunch_break: settings?.lunch_break ?? defaultSettings.lunch_break,
+    notifications: settings?.notifications ?? defaultSettings.notifications,
+    theme: settings?.theme ?? defaultSettings.theme,
   });
 
-  // In Settings.jsx, update the updateMutation
-const updateMutation = useMutation({
-  mutationFn: async (data) => {
-    return new Promise((resolve, reject) => {
-      router.post(
-        '/settings',
-        data,
-        {
-          preserveState: true,
-          onSuccess: (page) => {
-            console.log('Settings update success:', page.props);
-            if (page.props.flash?.success) {
+  const updateMutation = useMutation({
+    mutationFn: async (data) => {
+      return new Promise((resolve, reject) => {
+        router.post(
+          '/settings',
+          data,
+          {
+            preserveState: true,
+            onSuccess: (page) => {
+              console.log('Settings update success:', page.props);
+              if (page.props.flash?.success) {
+                toast({
+                  title: 'Success',
+                  description: page.props.flash.success,
+                  variant: 'default',
+                  duration: 5000,
+                });
+              }
+              resolve(page.props);
+            },
+            onError: (errors) => {
+              console.error('Settings update error:', errors);
               toast({
-                title: 'Success',
-                description: page.props.flash.success,
-                variant: 'default',
+                title: 'Update Failed',
+                description: errors.message || 'An unexpected error occurred while updating settings.',
+                variant: 'destructive',
                 duration: 5000,
               });
-            }
-            resolve(page.props);
-          },
-          onError: (errors) => {
-            console.error('Settings update error:', errors);
-            toast({
-              title: 'Update Failed',
-              description: errors.message || 'An unexpected error occurred while updating settings.',
-              variant: 'destructive',
-              duration: 5000,
-            });
-            reject(new Error(errors.message || 'Failed to update settings'));
-          },
-        }
-      );
-    });
-  },
-  onError: (error) => {
-    toast({
-      title: 'Update Failed',
-      description: error.message || 'An unexpected error occurred while updating settings.',
-      variant: 'destructive',
-      duration: 5000,
-    });
-  },
-});
+              reject(new Error(errors.message || 'Failed to update settings'));
+            },
+          }
+        );
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Update Failed',
+        description: error.message || 'An unexpected error occurred while updating settings.',
+        variant: 'destructive',
+        duration: 5000,
+      });
+    },
+  });
 
   const handleChange = (key, value) => {
     setFormData((prev) => ({ ...prev, [key]: value }));

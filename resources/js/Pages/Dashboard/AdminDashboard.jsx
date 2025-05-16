@@ -33,9 +33,50 @@ export default function AdminDashboard({ auth }) {
     viewType: 'week',
   });
 
-  const academicYear = "2023-2024";
-  const semester = "First";
-  const currentWeek = "3";
+  // Fetch settings for academic information
+  const { data: settings, isLoading: isSettingsLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const response = await fetch('/settings');
+      const data = await response.json();
+      return data.settings;
+    },
+  });
+
+  // Get current semester info
+  const getCurrentSemesterInfo = () => {
+    if (!settings || !settings.semesters) {
+      return { 
+        academicYear: 'Loading...', 
+        semester: 'Loading...', 
+        currentWeek: 'Loading...' 
+      };
+    }
+
+    const currentDate = new Date();
+    const semester = settings.semesters.find(sem => {
+      const startDate = new Date(sem.start_date);
+      const endDate = new Date(sem.end_date);
+      return currentDate >= startDate && currentDate <= endDate;
+    }) || settings.semesters[0]; // fallback
+
+    let currentWeek = 'N/A';
+    if (semester) {
+      const startDate = new Date(semester.start_date);
+      const diffTime = currentDate - startDate;
+      if (diffTime >= 0) {
+        currentWeek = `Week ${Math.floor(diffTime / (1000 * 60 * 60 * 24 * 7)) + 1}`;
+      }
+    }
+
+    return {
+      academicYear: settings.academic_year || 'N/A',
+      semester: semester ? `Semester ${semester.name}` : 'N/A',
+      currentWeek,
+    };
+  };
+
+  const { academicYear, semester, currentWeek } = getCurrentSemesterInfo();
 
   const { data: stats, isLoading: isStatsLoading } = useQuery({
     queryKey: ['dashboardStats'],
@@ -91,10 +132,10 @@ export default function AdminDashboard({ auth }) {
                 Academic Year: {academicYear}
               </Badge>
               <Badge variant="secondary">
-                Semester: {semester}
+                {semester}
               </Badge>
               <Badge variant="secondary">
-                Week: {currentWeek}
+                {currentWeek}
               </Badge>
             </div>
           </div>

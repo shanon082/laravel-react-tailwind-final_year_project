@@ -89,4 +89,30 @@ class Course extends Model
     {
         return $this->hasMany(Feedback::class);
     }
+
+    /**
+     * The courses that are prerequisites for this course.
+     */
+    public function prerequisites()
+    {
+        return $this->belongsToMany(
+            Course::class,
+            'course_prerequisite', // pivot table name
+            'course_id',           // this course
+            'prerequisite_id'      // prerequisite course
+        );
+    }
+
+    /**
+     * The courses for which this course is a prerequisite.
+     */
+    public function requiredFor()
+    {
+        return $this->belongsToMany(
+            Course::class,
+            'course_prerequisite',
+            'prerequisite_id',
+            'course_id'
+        );
+    }
 }

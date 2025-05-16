@@ -32,4 +32,9 @@ class Lecturer extends Model
     {
         return $this->hasMany(LecturerAvailability::class,'lecturer_id');
     }
+
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 }

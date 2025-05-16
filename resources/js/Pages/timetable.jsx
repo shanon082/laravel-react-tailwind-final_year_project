@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { getCurrentAcademicInfo } from "../utils/academicInfo";
 import Layout from "../MajorComponents/layout/layout";
 import FilterControls from "../MajorComponents/timetable/filter-controls";
 import TimetableGrid from "../MajorComponents/timetable/timetable-grid";
@@ -18,9 +20,18 @@ const Timetable = ({ auth, flash }) => {
   const [location] = useLocation();
   const params = new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
   const showConflicts = params.get("showConflicts") === "true";
-  const academicYear = params.get("academic_year") || "2023-2024";
-  const semester = params.get("semester") || "First";
   const [showGenerator, setShowGenerator] = useState(false);
+
+  const { data: settings, isLoading: isSettingsLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const response = await fetch('/settings');
+      const data = await response.json();
+      return data.settings;
+    },
+  });
+
+  const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings);
 
   const [filters, setFilters] = useState({
     viewType: "week",
@@ -77,7 +88,7 @@ const Timetable = ({ auth, flash }) => {
             Timetable
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            View and manage the university timetable for {academicYear}, {semester} semester.
+            View and manage the university timetable for {academicYear}, {semesterName} semester.
           </p>
         </div>
         {user?.role === UserRole.ADMIN && (
@@ -88,7 +99,7 @@ const Timetable = ({ auth, flash }) => {
       </div>
 
       {user?.role === UserRole.ADMIN && showGenerator && (
-        <TimetableGenerator academicYear={academicYear} semester={semester} />
+        <TimetableGenerator academicYear={academicYear} semester={semesterName} />
       )}
 
       <FilterControls onFilterChange={handleFilterChange} defaultFilters={filters} />
@@ -100,7 +111,7 @@ const Timetable = ({ auth, flash }) => {
           lecturer_id: filters.lecturer_id?.toString(),
           day: filters.day,
           academic_year: academicYear,
-          semester: semester,
+          semester: semesterName,
           department: filters.department,
           level: filters.level,
         }}

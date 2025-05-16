@@ -18,6 +18,8 @@ import { useToast } from "../../hooks/use-toast";
 import { apiRequest } from "../../lib/queryClient";
 import TimetableGrid from "./timetable-grid";
 import SecondaryButton from "@/Components/SecondaryButton";
+import { Alert, AlertDescription, AlertTitle } from "@/Components/alert";
+import { getCurrentAcademicInfo } from "../../utils/academicInfo";
 
 const TimetableGenerator = ({ academicYear, semester }) => {
   const { toast } = useToast();
@@ -35,15 +37,49 @@ const TimetableGenerator = ({ academicYear, semester }) => {
     department: null,
     level: null,
   });
+  const [error, setError] = useState(null);
+
+  // Fetch existing timetable
+  const { data: existingTimetable = [], isLoading: timetableLoading, refetch: refetchTimetable } = useQuery({
+    queryKey: ['timetable', filter.academic_year, filter.semester],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', `/timetable?academic_year=${encodeURIComponent(filter.academic_year)}&semester=${encodeURIComponent(filter.semester)}`);
+        const data = await response.json();
+        setTimetable(data.timetable || []);
+        setConflicts(data.conflicts || []);
+        return data.timetable || [];
+      } catch (error) {
+        console.error('Error fetching timetable:', error);
+        return [];
+      }
+    },
+    enabled: !!filter.academic_year && !!filter.semester,
+  });
 
   // Fetch settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
       const response = await apiRequest('GET', '/settings');
-      return response.json().settings;
+      const data = await response.json();
+      return data.settings;
     },
   });
+
+  const { academicYear: currentAcademicYear, semesterName } = getCurrentAcademicInfo(settings);
+
+  useEffect(() => {
+    if (settings) {
+      setYear(currentAcademicYear);
+      setTerm(semesterName);
+      setFilter((prev) => ({
+        ...prev,
+        academic_year: currentAcademicYear,
+        semester: semesterName,
+      }));
+    }
+  }, [settings]);
 
   // Fetch time slots
   const { data: timeSlots = [], isLoading: timeSlotsLoading } = useQuery({
@@ -56,72 +92,147 @@ const TimetableGenerator = ({ academicYear, semester }) => {
 
   const generateMutation = useMutation({
     mutationFn: async (data) => {
+      console.log("Starting timetable generation with data:", data);
       return new Promise((resolve, reject) => {
         router.post(
           '/timetable/generate',
           {
-            ...data,
-            _token: document.querySelector('meta[name="csrf-token"]').content,
+            academic_year: data.academic_year,
+            semester: parseInt(data.semester, 10)
           },
           {
             preserveState: true,
+            preserveScroll: true,
             onSuccess: (page) => {
-              setTimetable(page.props.timetable || []);
-              setConflicts(page.props.conflicts || []);
-              setFilter({
-                ...filter,
-                academic_year: data.academic_year,
-                semester: data.semester,
+              console.log("Generation response:", page);
+              // Check for flash message
+              const success = page.props?.flash?.success;
+              const error = page.props?.flash?.error;
+              
+              if (error) {
+                reject(new Error(error));
+                return;
+              }
+
+              // Fetch the updated timetable after generation
+              router.reload({ only: ['timetable'] });
+              
+              resolve({
+                message: success || 'Timetable generated successfully',
+                timetable: page.props.timetable || [],
+                conflicts: page.props.conflicts || [],
+                stats: page.props.stats || {}
               });
-              resolve(page.props);
             },
             onError: (errors) => {
+              console.error("Generation failed with errors:", errors);
               reject(new Error(errors.message || 'Failed to generate timetable'));
             },
           }
         );
       });
     },
-    onSuccess: (props) => {
-      if (!props.timetable || props.timetable.length === 0) {
-        toast({
-          title: "No Timetable Generated",
-          description: "No timetable entries were generated. Please ensure sufficient data is available.",
-          variant: "warning",
-          duration: 5000,
-        });
-      } else if (props.conflicts && props.conflicts.length > 0) {
-        toast({
-          title: "Conflicts Detected",
-          description: `${props.conflicts.length} conflicts found in the generated timetable.`,
-          variant: "warning",
-          duration: 5000,
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Timetable generated and saved successfully.",
-          variant: "default",
-          duration: 5000,
-        });
-      }
+    onSuccess: (response) => {
+      console.log("Mutation completed successfully:", response);
+      toast({
+        title: "Success",
+        description: (
+          <div>
+            <p>{response.message}</p>
+            <ul className="mt-2 text-sm">
+              <li>Courses scheduled: {response.stats.courses_scheduled}</li>
+              <li>Rooms used: {response.stats.rooms_used}</li>
+              <li>Lecturers assigned: {response.stats.lecturers_assigned}</li>
+            </ul>
+          </div>
+        ),
+        duration: 5000
+      });
+      
+      // Invalidate queries to refresh the data
       queryClient.invalidateQueries({ queryKey: ['/timetable'] });
+      queryClient.invalidateQueries(['timetable']);
     },
     onError: (error) => {
+      console.error("Mutation error:", error);
       toast({
-        title: "Generation Failed",
-        description: error.message || "An unexpected error occurred while generating the timetable.",
         variant: "destructive",
-        duration: 5000,
+        title: "Error",
+        description: error.message || "An unexpected error occurred while generating the timetable. Please check that you have:\n1. Courses in the system\n2. Available rooms\n3. Assigned lecturers\n4. Defined time slots"
       });
     },
   });
 
-  const handleGenerate = () => {
-    generateMutation.mutate({
-      academic_year: year,
-      semester: term,
-    });
+  const handleGenerate = async () => {
+    try {
+      setError(null);
+      
+      // Validate semester is a number
+      const semesterValue = parseInt(term, 10);
+      if (isNaN(semesterValue)) {
+        setError('Invalid semester value');
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: 'Invalid semester value'
+        });
+        return;
+      }
+
+      // Validate academic year format (YYYY/YYYY)
+      const yearPattern = /^\d{4}\/\d{4}$/;
+      if (!yearPattern.test(year)) {
+        setError('Academic year must be in format YYYY/YYYY (e.g., 2023/2024)');
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: 'Academic year must be in format YYYY/YYYY (e.g., 2023/2024)'
+        });
+        return;
+      }
+
+      const response = await generateMutation.mutateAsync({
+        academic_year: year,
+        semester: semesterValue,
+      });
+
+      if (response.error) {
+        setError(response.error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: response.error
+        });
+        return;
+      }
+
+      // Show success message with stats
+      toast({
+        title: "Success",
+        description: (
+          <div>
+            <p>{response.message}</p>
+            <ul className="mt-2 text-sm">
+              <li>Courses scheduled: {response.stats.courses_scheduled}</li>
+              <li>Rooms used: {response.stats.rooms_used}</li>
+              <li>Lecturers assigned: {response.stats.lecturers_assigned}</li>
+            </ul>
+          </div>
+        ),
+      });
+
+      // Refresh the timetable data
+      await refetchTimetable();
+
+    } catch (err) {
+      console.error('Generation failed:', err);
+      setError(err.message || 'Failed to generate timetable');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: err.message || 'Failed to generate timetable'
+      });
+    }
   };
 
   const handleExport = (format) => {
@@ -133,20 +244,27 @@ const TimetableGenerator = ({ academicYear, semester }) => {
     router.visit(`/timetable?academic_year=${year}&semester=${term}`);
   };
 
-  // Update year and term based on settings once loaded
-  useEffect(() => {
-    if (settings) {
-      setYear(settings.academic_year || academicYear);
-      if (settings.semesters && settings.semesters.length > 0) {
-        setTerm(settings.semesters[0].name);
-        setFilter((prev) => ({
-          ...prev,
-          academic_year: settings.academic_year || academicYear,
-          semester: settings.semesters[0].name,
-        }));
-      }
+  // Define available semesters
+  const availableSemesters = [
+    { id: 1, name: "Semester One" },
+    { id: 2, name: "Semester Two" }
+  ];
+
+  const handleYearChange = (e) => {
+    let value = e.target.value;
+    
+    // Remove any non-digit characters
+    value = value.replace(/[^\d]/g, '');
+    
+    // Format as YYYY/YYYY if we have enough digits
+    if (value.length >= 4) {
+      const firstYear = value.slice(0, 4);
+      const nextYear = (parseInt(firstYear) + 1).toString();
+      value = `${firstYear}/${nextYear}`;
     }
-  }, [settings]);
+    
+    setYear(value);
+  };
 
   return (
     <div>
@@ -166,20 +284,32 @@ const TimetableGenerator = ({ academicYear, semester }) => {
                 <Input
                   id="academic-year"
                   value={year}
-                  onChange={(e) => setYear(e.target.value)}
-                  placeholder="e.g. 2023-2024"
+                  onChange={handleYearChange}
+                  placeholder="e.g., 2023/2024"
                   className="mt-1"
                 />
+                <p className="mt-1 text-sm text-gray-500">
+                  Enter the starting year (e.g., 2023). The end year will be automatically set.
+                </p>
               </div>
               <div>
                 <Label htmlFor="semester">Semester</Label>
-                <Select value={term} onValueChange={setTerm}>
+                <Select 
+                  value={term} 
+                  onValueChange={(value) => {
+                    setTerm(value);
+                    setFilter(prev => ({
+                      ...prev,
+                      semester: value
+                    }));
+                  }}
+                >
                   <SelectTrigger id="semester" className="mt-1">
                     <SelectValue placeholder="Select semester" />
                   </SelectTrigger>
                   <SelectContent>
-                    {(settings?.semesters ?? []).map((sem) => (
-                      <SelectItem key={sem.name} value={sem.name}>
+                    {availableSemesters.map((sem) => (
+                      <SelectItem key={sem.id} value={String(sem.id)}>
                         {sem.name}
                       </SelectItem>
                     ))}
@@ -211,6 +341,14 @@ const TimetableGenerator = ({ academicYear, semester }) => {
               <li>Course requirements and conflicts</li>
             </ul>
           </div>
+
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
         </CardContent>
         <CardFooter className="justify-between">
           <SecondaryButton variant="outline" onClick={handleCancel}>
@@ -248,7 +386,7 @@ const TimetableGenerator = ({ academicYear, semester }) => {
         </CardFooter>
       </Card>
 
-      {timeSlotsLoading ? (
+      {(timetableLoading || timeSlotsLoading) ? (
         <div className="p-8 flex justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
         </div>

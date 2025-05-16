@@ -15,9 +15,17 @@ const TimetableCell = ({ entry, isLunchBreak = false }) => {
   }
 
   // Use the color_code from the course, assuming it's a valid CSS color (e.g., '#FF5733' or 'red')
-  const colorCode = entry.course.color_code || '#D1D5DB'; // Fallback to gray if color_code is missing
+  const colorCode = entry?.course?.color_code || '#D1D5DB'; // Fallback to gray if color_code is missing
   const colorClassOpacity = `bg-[${colorCode}] bg-opacity-20`;
   const borderClass = `border-l-4 border-[${colorCode}]`;
+
+  // Safely access nested properties
+  const courseName = entry?.course?.name || 'Unknown Course';
+  const courseCode = entry?.course?.code || '';
+  const roomName = entry?.room?.name || 'Unknown Room';
+  const lecturerName = entry?.lecturer?.userDetails?.fullName || entry?.lecturer?.name || `Lecturer ${entry?.lecturer?.id || 'Unknown'}`;
+  const startTime = entry?.timeSlot?.start_time || entry?.timeSlot?.startTime || '';
+  const endTime = entry?.timeSlot?.end_time || entry?.timeSlot?.endTime || '';
 
   return (
     <div className="timetable-cell p-2 border-b border-r border-gray-200 bg-white min-h-[80px]">
@@ -30,11 +38,9 @@ const TimetableCell = ({ entry, isLunchBreak = false }) => {
                   <AlertCircle className="h-3 w-3 text-white" />
                 </span>
               )}
-              <div className="font-medium text-gray-900 text-sm">{entry.course.name}</div>
-              <div className="text-xs text-gray-600">Room: {entry.room.name}</div>
-              <div className="text-xs text-gray-600">
-                {entry.lecturer.userDetails?.fullName || `Lecturer ${entry.lecturer.id}`}
-              </div>
+              <div className="font-medium text-gray-900 text-sm">{courseName}</div>
+              <div className="text-xs text-gray-600">Room: {roomName}</div>
+              <div className="text-xs text-gray-600">{lecturerName}</div>
               {entry.hasConflict && (
                 <div className="text-xs text-red-600 mt-1">
                   {entry.conflictType === 'ROOM' && 'Room Conflict'}
@@ -47,10 +53,10 @@ const TimetableCell = ({ entry, isLunchBreak = false }) => {
           </TooltipTrigger>
           <TooltipContent className="max-w-[250px] break-words">
             <div className="space-y-1">
-              <p className="font-bold">{entry.course.name} ({entry.course.code})</p>
-              <p>Room: {entry.room.name}</p>
-              <p>Lecturer: {entry.lecturer.userDetails?.fullName}</p>
-              <p>Time: {entry.timeSlot.startTime} - {entry.timeSlot.endTime}</p>
+              <p className="font-bold">{courseName} {courseCode && `(${courseCode})`}</p>
+              <p>Room: {roomName}</p>
+              <p>Lecturer: {lecturerName}</p>
+              <p>Time: {startTime} - {endTime}</p>
               {entry.hasConflict && (
                 <p className="text-red-500 font-semibold">Warning: This session has a conflict!</p>
               )}
