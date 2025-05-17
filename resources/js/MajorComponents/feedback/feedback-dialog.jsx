@@ -104,10 +104,10 @@ const FeedbackDialog = () => {
     setError("");
     
     try {
-      await apiRequest('POST', '/feedback', {
+      const response = await apiRequest('POST', '/feedback', {
         type: feedback.type,
         message: feedback.message,
-        course_id: feedback.course_id,
+        course_id: feedback.course_id || null,
       });
       
       setShowSuccess(true);
@@ -125,9 +125,11 @@ const FeedbackDialog = () => {
         setIsSubmitting(false);
       }, 1500);
     } catch (error) {
+      console.error('Feedback submission error:', error);
+      const errorMessage = error.message || "Could not send feedback. Please try again later.";
       toast({
         title: "Error",
-        description: error.message || "Could not send feedback. Please try again later.",
+        description: errorMessage,
         variant: "destructive",
         className: "bg-red-50 border-red-200 text-red-800",
         icon: <AlertTriangle className="h-5 w-5" />,

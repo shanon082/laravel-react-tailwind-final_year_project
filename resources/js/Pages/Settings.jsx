@@ -1,7 +1,7 @@
 import Layout from '@/MajorComponents/layout/layout';
 import { Head } from '@inertiajs/react';
-import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useState, useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { router } from '@inertiajs/react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/card';
@@ -17,40 +17,62 @@ import {
 } from '@/Components/select';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
-export default function Settings({ auth, settings }) {
+export default function Settings({ auth, settings: initialSettings }) {
   const { toast } = useToast();
 
-  const defaultSettings = {
-    academic_year: '2023-2024',
-    semesters: [
-      { name: 'First', start_date: '2023-09-01', end_date: '2023-12-15' },
-      { name: 'Second', start_date: '2024-01-15', end_date: '2024-05-30' },
-      { name: 'Third', start_date: '2024-06-01', end_date: '2024-08-15' },
-    ],
-    time_slots: [
-      { start_time: '08:00:00', end_time: '09:00:00' },
-      { start_time: '09:00:00', end_time: '10:00:00' },
-      { start_time: '10:00:00', end_time: '11:00:00' },
-      { start_time: '11:00:00', end_time: '12:00:00' },
-      { start_time: '13:00:00', end_time: '14:00:00' },
-      { start_time: '14:00:00', end_time: '15:00:00' },
-    ],
-    lunch_break: { start_time: '13:00:00', end_time: '14:00:00' },
+  // Fetch current academic year and settings
+  const { data: currentSettings, isLoading: isSettingsLoading } = useQuery({
+    queryKey: ['settings'],
+    queryFn: async () => {
+      const response = await fetch('/api/settings');
+      if (!response.ok) {
+        throw new Error('Failed to fetch settings');
+      }
+      return response.json();
+    },
+    initialData: initialSettings
+  });
+
+  // Fetch lecturers
+  const { data: lecturers, isLoading: isLecturersLoading } = useQuery({
+    queryKey: ['lecturers'],
+    queryFn: async () => {
+      const response = await fetch('/api/lecturers');
+      if (!response.ok) {
+        throw new Error('Failed to fetch lecturers');
+      }
+      return response.json();
+    }
+  });
+
+  // Fetch students
+  const { data: students, isLoading: isStudentsLoading } = useQuery({
+    queryKey: ['students'],
+    queryFn: async () => {
+      const response = await fetch('/api/students');
+      if (!response.ok) {
+        throw new Error('Failed to fetch students');
+      }
+      return response.json();
+    }
+  });
+
+  const [formData, setFormData] = useState(currentSettings || {
+    academic_year: '',
+    semesters: [],
+    time_slots: [],
+    lunch_break: { start_time: '', end_time: '' },
     max_courses_per_day: 3,
     notifications: { email: true, in_app: true },
     export_format: 'csv',
     theme: { primary_color: '#4B5EAA', secondary_color: '#FF5733' },
-  };
-
-  const [formData, setFormData] = useState({
-    ...defaultSettings,
-    ...settings,
-    semesters: settings?.semesters ?? defaultSettings.semesters,
-    time_slots: settings?.time_slots ?? defaultSettings.time_slots,
-    lunch_break: settings?.lunch_break ?? defaultSettings.lunch_break,
-    notifications: settings?.notifications ?? defaultSettings.notifications,
-    theme: settings?.theme ?? defaultSettings.theme,
   });
+
+  useEffect(() => {
+    if (currentSettings) {
+      setFormData(currentSettings);
+    }
+  }, [currentSettings]);
 
   const updateMutation = useMutation({
     mutationFn: async (data) => {

@@ -1,4 +1,4 @@
-import { Menu, Bell, Search, ChevronDown, X } from "lucide-react";
+import { Menu, Search, ChevronDown, X } from "lucide-react";
 import { Button } from "../../Components/Button";
 import { Avatar, AvatarFallback, AvatarImage } from "../../Components/avatar";
 import { useState } from "react";
@@ -18,6 +18,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "../../lib/queryClient";
 import { useDebouncedCallback } from "use-debounce";
+import NotificationBell from "@/Components/NotificationBell";
 
 const Header = () => {
   const { user, logoutMutation } = useAuth();
@@ -199,18 +200,7 @@ const Header = () => {
 
           {/* Right Section */}
           <div className="flex items-center space-x-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="relative rounded-full hover:bg-gray-100 text-gray-600 hover:text-primary transition-all duration-200 group"
-              aria-label="Notifications"
-            >
-              <Bell className="h-5 w-5" />
-              <span className="absolute top-1 right-1 block h-2 w-2 rounded-full bg-red-500 ring-2 ring-white animate-pulse" />
-              <span className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                View notifications
-              </span>
-            </Button>
+            <NotificationBell />
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -15,20 +15,36 @@ class NotificationController extends Controller
     /**
      * Fetch unread notifications for the authenticated user.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->input('per_page', 10);
         $user = Auth::user();
-        $notifications = $user->unreadNotifications()->get()->map(function ($notification) {
-            return [
-                'id' => $notification->id,
-                'type' => $notification->type,
-                'data' => $notification->data,
-                'created_at' => $notification->created_at->toDateTimeString(),
-                'read_at' => $notification->read_at,
-            ];
-        });
+        
+        // Get total unread count
+        $unreadCount = $user->unreadNotifications()->count();
+        
+        // Get paginated notifications
+        $notifications = $user->unreadNotifications()
+            ->orderBy('created_at', 'desc')
+            ->paginate($perPage)
+            ->through(function ($notification) {
+                return [
+                    'id' => $notification->id,
+                    'type' => $notification->type,
+                    'data' => $notification->data,
+                    'created_at' => $notification->created_at->toDateTimeString(),
+                    'read_at' => $notification->read_at,
+                ];
+            });
 
-        return response()->json($notifications);
+        return response()->json([
+            'data' => $notifications->items(),
+            'unread_count' => $unreadCount,
+            'current_page' => $notifications->currentPage(),
+            'per_page' => $notifications->perPage(),
+            'total' => $notifications->total(),
+            'has_more_pages' => $notifications->hasMorePages(),
+        ]);
     }
 
     /**
@@ -40,7 +56,10 @@ class NotificationController extends Controller
         $notification = $user->notifications()->findOrFail($id);
         $notification->markAsRead();
 
-        return response()->json(['message' => 'Notification marked as read']);
+        return response()->json([
+            'message' => 'Notification marked as read',
+            'unread_count' => $user->unreadNotifications()->count(),
+        ]);
     }
 
     /**
@@ -51,6 +70,9 @@ class NotificationController extends Controller
         $user = Auth::user();
         $user->unreadNotifications()->update(['read_at' => now()]);
 
-        return response()->json(['message' => 'All notifications marked as read']);
+        return response()->json([
+            'message' => 'All notifications marked as read',
+            'unread_count' => 0,
+        ]);
     }
 }

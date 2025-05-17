@@ -27,11 +27,29 @@ export default function Feedback({ auth, feedbackList = [] }) {
                 return;
             }
 
+            if (replyForm.message.length < 10) {
+                toast({
+                    title: 'Error',
+                    description: 'Reply message must be at least 10 characters long.',
+                    variant: 'destructive',
+                });
+                return;
+            }
+
             setIsSubmitting(true);
             try {
-                await apiRequest('POST', `/feedback/${feedbackId}/reply`, {
+                const response = await apiRequest('POST', `/feedback/${feedbackId}/reply`, {
                     resolution_notes: replyForm.message,
                 });
+
+                // Update the feedback item in the list
+                const updatedFeedback = feedbackList.map(item => 
+                    item.id === feedbackId 
+                        ? { ...item, is_resolved: true, resolution_notes: replyForm.message }
+                        : item
+                );
+                feedbackList = updatedFeedback;
+
                 toast({
                     title: 'Reply Sent',
                     description: `Reply sent to ${userName || 'user'}.`,
@@ -41,9 +59,10 @@ export default function Feedback({ auth, feedbackList = [] }) {
                 });
                 setReplyForm({ feedbackId: null, message: '' });
             } catch (error) {
+                console.error('Feedback reply error:', error);
                 toast({
                     title: 'Error',
-                    description: 'Could not send reply.',
+                    description: error.message || 'Could not send reply. Please try again.',
                     variant: 'destructive',
                 });
             } finally {

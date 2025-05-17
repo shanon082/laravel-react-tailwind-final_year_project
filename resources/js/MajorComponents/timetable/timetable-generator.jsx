@@ -95,7 +95,7 @@ const TimetableGenerator = ({ academicYear, semester }) => {
       console.log("Starting timetable generation with data:", data);
       return new Promise((resolve, reject) => {
         router.post(
-          '/timetable/generate',
+          "timetable/generate",
           {
             academic_year: data.academic_year,
             semester: parseInt(data.semester, 10)
@@ -247,7 +247,8 @@ const TimetableGenerator = ({ academicYear, semester }) => {
   // Define available semesters
   const availableSemesters = [
     { id: 1, name: "Semester One" },
-    { id: 2, name: "Semester Two" }
+    { id: 2, name: "Semester Two" },
+    { id: 3, name: "Recess/Internship" }
   ];
 
   const handleYearChange = (e) => {

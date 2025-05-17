@@ -17,6 +17,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Http\Controllers\TimeSlotController;
+use App\Http\Controllers\StudentController;
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
@@ -109,8 +110,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/lecturers', [LecturerController::class, 'store'])->name('lecturers.store');
     Route::put('/lecturers/{id}', [LecturerController::class, 'update'])->name('lecturers.update');
     Route::delete('/lecturers/{id}', [LecturerController::class, 'destroy'])->name('lecturers.destroy');
-    Route::get('/lecturers/{id}/courses', [LecturerController::class, 'lecturers.courses']);
-    Route::get('/lecturers/{id}/timetable', [LecturerController::class, 'lecturers.timetableEntries']);
+    Route::get('/lecturers/{id}/courses', [LecturerController::class, 'courses'])->name('lecturers.courses');
+    Route::get('/lecturers/{id}/timetable', [LecturerController::class, 'timetableEntries'])->name('lecturers.timetable');
     Route::get('/lecturers/{id}/availability', [LecturerController::class, 'availability'])->name('lecturers.availability');
     Route::post('/lecturers/{lecturerId}/availability', [LecturerController::class, 'storeAvailability'])->name('lecturers.availability.store');
     Route::delete('/lecturers/availability/{id}', [LecturerController::class, 'destroyAvailability'])->name('lecturers.availability.destroy');
@@ -135,6 +136,11 @@ Route::middleware('auth')->group(function () {
     // Settings Routes
     Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+
+    // Student Routes
+    Route::get('/api/students/{id}/courses', [StudentController::class, 'courses'])->name('students.courses');
+    Route::get('/api/students/{id}/assignments', [StudentController::class, 'assignments'])->name('students.assignments');
+    Route::get('/api/students/{id}/timetable', [StudentController::class, 'timetable'])->name('students.timetable');
 });
 
 require __DIR__ . '/auth.php';

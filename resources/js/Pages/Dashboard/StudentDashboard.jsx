@@ -14,7 +14,7 @@ import SecondaryButton from '@/Components/SecondaryButton';
 import { getCurrentAcademicInfo } from "../../utils/academicInfo";
 
 export default function StudentDashboard({ auth }) {
-
+  // Move all hooks to the top of the component
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("timetable");
   const [filters, setFilters] = useState({
@@ -25,13 +25,43 @@ export default function StudentDashboard({ auth }) {
   const { data: settings, isLoading: isSettingsLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
-      const response = await fetch('/settings');
-      const data = await response.json();
-      return data.settings;
+      try {
+        const response = await fetch('/api/settings');
+        if (!response.ok) {
+          throw new Error('Failed to fetch settings');
+        }
+        const data = await response.json();
+        return data || {}; // Return empty object if no data
+      } catch (error) {
+        console.error('Settings fetch error:', error);
+        return {}; // Return empty object on error
+      }
     },
+    retry: 1,
+    refetchOnWindowFocus: false,
   });
 
-  const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings);
+  // Get enrolled courses - disabled for now
+  const { data: enrolledCourses = [], isLoading: coursesLoading } = useQuery({
+    queryKey: ['enrolledCourses'],
+    queryFn: async () => {
+      try {
+        const response = await fetch('/api/student/courses');
+        if (!response.ok) {
+          throw new Error('Failed to fetch courses');
+        }
+        const data = await response.json();
+        return data || [];
+      } catch (error) {
+        console.error('Courses fetch error:', error);
+        return [];
+      }
+    },
+    enabled: false, // Disable for now
+  });
+
+  // Get academic info after all hooks
+  const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings || {});
 
   // Show loading state while data is being fetched
   if (isSettingsLoading) {
@@ -41,13 +71,6 @@ export default function StudentDashboard({ auth }) {
       </div>
     );
   }
-
-  // Get enrolled courses
-  const { data: enrolledCourses, isLoading: coursesLoading } = useQuery({
-    queryKey: ['/api/student/courses'],
-    // When API is implemented, this will fetch the student's enrolled courses
-    enabled: false // Disable for now
-  });
 
   // Sample courses data
   const sampleCourses = [
@@ -234,6 +257,6 @@ export default function StudentDashboard({ auth }) {
           </TabsContent>
         </Tabs>
       </div>
-     </>
+    </>
   );
 }

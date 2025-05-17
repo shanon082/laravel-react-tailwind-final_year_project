@@ -13,10 +13,14 @@ class Feedback extends Model
         'user_id',
         'course_id',
         'type',
+        'title',
         'content',
-        'status',
-        'rating',
-        'admin_response',
+        'is_resolved',
+        'resolution_notes',
+    ];
+
+    protected $casts = [
+        'is_resolved' => 'boolean',
     ];
 
     /**

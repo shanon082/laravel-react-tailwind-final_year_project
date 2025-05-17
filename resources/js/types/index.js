@@ -1,10 +1,10 @@
 // Since we're in JavaScript, we'll define the same enums from schema.ts here
 // This ensures we have the same values in our JS files
 
-// Define UserRole enum
+// Define UserRole enum to match backend values
 export const UserRole = {
-  ADMIN: "admin", 
-  LECTURER: "lecturer", 
+  ADMIN: "admin",
+  LECTURER: "lecturer",
   STUDENT: "student"
 };
 

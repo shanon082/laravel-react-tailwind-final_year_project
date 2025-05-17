@@ -1,4 +1,5 @@
 import { QueryClient } from "@tanstack/react-query";
+import axios from "axios";
 
 function getCookie(name) {
   const value = `; ${document.cookie}`;
@@ -17,49 +18,54 @@ async function throwIfResNotOk(res) {
 }
 
 export async function apiRequest(method, url, data = null) {
-    const csrfToken = getCookie("XSRF-TOKEN");
-    const res = await fetch(url, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      "Accept": "application/json",
-      "X-CSRF-TOKEN": csrfToken,
-       ... (method === 'POST' || method === 'PUT' || method === 'DELETE' ? { "X-Requested-With": "XMLHttpRequest" } : {}),
-    },
-    body: data ? JSON.stringify(data) : undefined,
-    credentials: "include",
-  });
-
-  await throwIfResNotOk(res);
-  return res;
+    try {
+        const response = await axios({
+            method,
+            url,
+            data,
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            withCredentials: true
+        });
+        return response.data;
+    } catch (error) {
+        if (error.response) {
+            throw new Error(error.response.data.message || 'An error occurred');
+        }
+        throw error;
+    }
 }
 
 export const getQueryFn = ({ on401: unauthorizedBehavior }) => {
-  return async ({ queryKey }) => {
-    const res = await fetch(queryKey[0], {
-      credentials: "include",
-    });
-
-    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
-      return null;
-    }
-
-    await throwIfResNotOk(res);
-    return await res.json();
-  };
+    return async ({ queryKey }) => {
+        try {
+            const response = await axios.get(queryKey[0], {
+                withCredentials: true
+            });
+            return response.data;
+        } catch (error) {
+            if (unauthorizedBehavior === "returnNull" && error.response?.status === 401) {
+                return null;
+            }
+            throw error;
+        }
+    };
 };
 
 export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      queryFn: getQueryFn({ on401: "throw" }),
-      refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+    defaultOptions: {
+        queries: {
+            queryFn: getQueryFn({ on401: "throw" }),
+            refetchInterval: false,
+            refetchOnWindowFocus: false,
+            staleTime: Infinity,
+            retry: false,
+        },
+        mutations: {
+            retry: false,
+        },
     },
-    mutations: {
-      retry: false,
-    },
-  },
 });
