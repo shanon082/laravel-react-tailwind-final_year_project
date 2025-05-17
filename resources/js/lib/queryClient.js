@@ -10,13 +10,6 @@ function getCookie(name) {
   return null;
 }
 
-async function throwIfResNotOk(res) {
-  if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
-  }
-}
-
 export async function apiRequest(method, url, data = null) {
     try {
         const response = await axios({
@@ -30,10 +23,18 @@ export async function apiRequest(method, url, data = null) {
             },
             withCredentials: true
         });
-        return response.data;
+        return {
+            ok: true,
+            data: response.data,
+            status: response.status
+        };
     } catch (error) {
         if (error.response) {
-            throw new Error(error.response.data.message || 'An error occurred');
+            return {
+                ok: false,
+                error: error.response.data.message || 'An error occurred',
+                status: error.response.status
+            };
         }
         throw error;
     }

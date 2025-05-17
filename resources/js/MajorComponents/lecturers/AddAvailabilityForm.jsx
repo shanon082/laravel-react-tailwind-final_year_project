@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { useForm, usePage } from '@inertiajs/react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../../Components/dialog';
 import { Button } from '../../Components/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../Components/select';
@@ -7,37 +6,50 @@ import { Input } from '../../Components/input';
 import { Label } from '../../Components/label';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '../../hooks/use-toast';
+import { useMutation } from '@tanstack/react-query';
+import { apiRequest } from '../../lib/queryClient';
 
-const AddAvailabilityForm = ({ lecturerId, onSuccess }) => {
+const AddAvailabilityForm = ({ lecturerId, onClose, onSuccess }) => {
   const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
-  const { flash } = usePage().props; // Access flash messages
-
-  const form = useForm({
+  const [formData, setFormData] = useState({
     day: 'MONDAY',
     start_time: '08:00',
     end_time: '17:00',
   });
 
-  // Handle flash messages
-  useEffect(() => {
-    if (flash?.success) {
+  const addAvailabilityMutation = useMutation({
+    mutationFn: async (data) => {
+      const response = await apiRequest('POST', `/lecturers/${lecturerId}/availability`, data);
+      if (!response.ok) {
+        throw new Error(response.error || 'Failed to add availability');
+      }
+      return response;
+    },
+    onSuccess: () => {
+      setIsOpen(false);
+      setFormData({
+        day: 'MONDAY',
+        start_time: '08:00',
+        end_time: '17:00',
+      });
       toast({
         title: 'Success',
-        description: flash.success,
+        description: 'Availability added successfully',
       });
-    }
-    if (flash?.error) {
+      if (onSuccess) onSuccess();
+    },
+    onError: (error) => {
       toast({
-        title: 'Error',
-        description: flash.error,
+        title: 'Failed to add availability',
+        description: error.message || 'An error occurred while adding availability.',
         variant: 'destructive',
       });
-    }
-  }, [flash, toast]);
+    },
+  });
 
   const handleSubmit = () => {
-    if (form.data.start_time >= form.data.end_time) {
+    if (formData.start_time >= formData.end_time) {
       toast({
         title: 'Invalid time range',
         description: 'End time must be after start time.',
@@ -46,26 +58,20 @@ const AddAvailabilityForm = ({ lecturerId, onSuccess }) => {
       return;
     }
 
-    form.post(`/lecturers/${lecturerId}/availability`, {
-      onSuccess: () => {
-        setIsOpen(false);
-        form.reset();
-        onSuccess();
-      },
-      onError: (errors) => {
-        toast({
-          title: 'Failed to add availability',
-          description: errors.message || 'An error occurred while adding availability.',
-          variant: 'destructive',
-        });
-      },
-    });
+    addAvailabilityMutation.mutate(formData);
+  };
+
+  const handleOpenChange = (open) => {
+    setIsOpen(open);
+    if (!open && onClose) {
+      onClose();
+    }
   };
 
   const allDays = ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'];
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="sm" className="px-4 py-2" title="Add availability slot">
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -80,8 +86,8 @@ const AddAvailabilityForm = ({ lecturerId, onSuccess }) => {
           <div className="grid grid-cols-1 gap-2">
             <Label htmlFor="day">Day</Label>
             <Select
-              value={form.data.day}
-              onValueChange={(value) => form.setData('day', value)}
+              value={formData.day}
+              onValueChange={(value) => setFormData(prev => ({ ...prev, day: value }))}
             >
               <SelectTrigger id="day" aria-label="Select day">
                 <SelectValue placeholder="Select day" />
@@ -101,8 +107,8 @@ const AddAvailabilityForm = ({ lecturerId, onSuccess }) => {
               <Input
                 id="start-time"
                 type="time"
-                value={form.data.start_time}
-                onChange={(e) => form.setData('start_time', e.target.value)}
+                value={formData.start_time}
+                onChange={(e) => setFormData(prev => ({ ...prev, start_time: e.target.value }))}
                 aria-label="Start time"
               />
             </div>
@@ -111,8 +117,8 @@ const AddAvailabilityForm = ({ lecturerId, onSuccess }) => {
               <Input
                 id="end-time"
                 type="time"
-                value={form.data.end_time}
-                onChange={(e) => form.setData('end_time', e.target.value)}
+                value={formData.end_time}
+                onChange={(e) => setFormData(prev => ({ ...prev, end_time: e.target.value }))}
                 aria-label="End time"
               />
             </div>
@@ -121,17 +127,17 @@ const AddAvailabilityForm = ({ lecturerId, onSuccess }) => {
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => setIsOpen(false)}
+            onClick={() => handleOpenChange(false)}
             className="px-6 py-2"
           >
             Cancel
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={form.processing}
+            disabled={addAvailabilityMutation.isPending}
             className="px-6 py-2"
           >
-            {form.processing ? (
+            {addAvailabilityMutation.isPending ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Adding...

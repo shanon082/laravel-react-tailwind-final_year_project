@@ -457,11 +457,11 @@ const Lecturers = ({ auth, lecturerResponse, filters }) => {
         </div>
 
         {/* Desktop View: Grid Layout */}
-        <div className="hidden lg:grid grid-cols-1 gap-8 lg:grid-cols-4">
-          <div className="lg:col-span-1">
+        <div className="hidden lg:grid grid-cols-1 gap-8 lg:grid-cols-5">
+          <div className="lg:col-span-3">
             <LecturerList onSelectLecturer={handleSelectLecturer} selectedLecturerId={selectedLecturerId} />
           </div>
-          <div className="lg:col-span-3">
+          <div className="lg:col-span-2">
             {selectedLecturerId ? (
               <AvailabilityTable lecturerId={selectedLecturerId} />
             ) : (
