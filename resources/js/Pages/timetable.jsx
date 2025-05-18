@@ -13,14 +13,19 @@ import { useLocation } from "wouter";
 import { Head } from "@inertiajs/react";
 import { Button } from "@/Components/Button";
 import { useToast } from "../hooks/use-toast";
+import { apiRequest } from "../lib/queryClient";
 
-const Timetable = ({ auth, flash }) => {
+const Timetable = ({ auth, timetable = [], conflicts = [], filters = {}, error }) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [location] = useLocation();
   const params = new URLSearchParams(location.includes("?") ? location.split("?")[1] : "");
   const showConflicts = params.get("showConflicts") === "true";
   const [showGenerator, setShowGenerator] = useState(false);
+  const [currentFilters, setCurrentFilters] = useState({
+    viewType: 'week',
+    ...filters
+  });
 
   const { data: settings, isLoading: isSettingsLoading } = useQuery({
     queryKey: ['settings'],
@@ -33,92 +38,80 @@ const Timetable = ({ auth, flash }) => {
 
   const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings);
 
-  const [filters, setFilters] = useState({
-    viewType: "week",
-    course_id: null,
-    room_id: null,
-    lecturer_id: null,
-    day: null,
-    department: null,
-    level: null,
+  const { data: timeSlots = [] } = useQuery({
+    queryKey: ['timeSlots'],
+    queryFn: async () => {
+      const response = await apiRequest('GET', '/timeslots');
+      return response || [];
+    }
   });
 
-  // Display flash messages as toasts
   useEffect(() => {
-    if (flash?.error) {
+    if (error) {
       toast({
         title: "Error",
-        description: flash.error,
-        variant: "destructive",
-        duration: 5000,
+        description: error,
+        variant: "destructive"
       });
     }
-    if (flash?.success) {
-      toast({
-        title: "Success",
-        description: flash.success,
-        variant: "default",
-        duration: 5000,
-      });
-    }
-  }, [flash, toast]);
+  }, [error]);
 
   const handleFilterChange = (newFilters) => {
-    setFilters({
-      viewType: newFilters.viewType || "week",
-      course_id: newFilters.course_id,
-      room_id: newFilters.room_id,
-      lecturer_id: newFilters.lecturer_id,
-      day: newFilters.day !== "all" ? newFilters.day : null,
-      department: newFilters.department !== "all" ? newFilters.department : null,
-      level: newFilters.level !== "all" ? newFilters.level : null,
-    });
+    setCurrentFilters(prev => ({
+      ...prev,
+      ...newFilters
+    }));
   };
 
   const toggleGenerator = () => {
-    setShowGenerator(!showGenerator);
+    setShowGenerator(prev => !prev);
   };
 
   return (
     <Layout user={auth.user}>
       <Head title="Timetable" />
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl">
-            Timetable
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            View and manage the university timetable for {academicYear}, {semesterName} semester.
-          </p>
+      <div className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-semibold text-gray-900">
+              Timetable Management
+            </h1>
+            <Button onClick={toggleGenerator}>
+              {showGenerator ? "Hide Generator" : "Generate Timetable"}
+            </Button>
+          </div>
+
+          {showGenerator && (
+            <TimetableGenerator
+              academicYear={currentFilters.academic_year}
+              semester={currentFilters.semester}
+            />
+          )}
+
+          <FilterControls
+            onFilterChange={handleFilterChange}
+            defaultFilters={currentFilters}
+          />
+
+          <TimetableGrid
+            filter={currentFilters}
+            viewType={currentFilters.viewType}
+            timetable={timetable}
+            timeSlots={timeSlots}
+          />
+
+          {conflicts.length > 0 && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
+              <h3 className="text-red-800 font-medium mb-2">Conflicts Found:</h3>
+              <ul className="list-disc list-inside text-red-700">
+                {conflicts.map((conflict, index) => (
+                  <li key={index}>{conflict.message}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
-        {user?.role === UserRole.ADMIN && (
-          <Button onClick={toggleGenerator}>
-            {showGenerator ? "Hide Generator" : "Generate Timetable"}
-          </Button>
-        )}
       </div>
-
-      {user?.role === UserRole.ADMIN && showGenerator && (
-        <TimetableGenerator academicYear={academicYear} semester={semesterName} />
-      )}
-
-      <FilterControls onFilterChange={handleFilterChange} defaultFilters={filters} />
-      
-      <TimetableGrid 
-        filter={{
-          course_id: filters.course_id?.toString(),
-          room_id: filters.room_id?.toString(),
-          lecturer_id: filters.lecturer_id?.toString(),
-          day: filters.day,
-          academic_year: academicYear,
-          semester: semesterName,
-          department: filters.department,
-          level: filters.level,
-        }}
-        viewType={filters.viewType}
-      />
-      
-      {showConflicts && <ConflictList />}
     </Layout>
   );
 };

@@ -13,10 +13,18 @@ class Lecturer extends Model
         'username',
         'fullName',
         'email',
-        'department',
+        'department_id',
         'contact',
         'title',
     ];
+
+    /**
+     * Get the department that this lecturer belongs to
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
 
     public function courses()
     {

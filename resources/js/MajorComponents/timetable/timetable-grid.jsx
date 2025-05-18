@@ -95,40 +95,58 @@ const TimetableGrid = ({ filter, viewType, timetable = [], timeSlots = [] }) => 
 
   // Filter entries based on filter criteria
   const filteredEntries = timetable.filter((entry) => {
-    if (filter.day && entry.day !== filter.day) return false;
-    if (filter.course_id && entry.course.id.toString() !== filter.course_id) return false;
-    if (filter.room_id && entry.room.id.toString() !== filter.room_id) return false;
-    if (filter.lecturer_id && entry.lecturer.id.toString() !== filter.lecturer_id) return false;
-    if (filter.department && entry.course.department !== filter.department) return false;
-    if (filter.level && entry.course.level.toString() !== filter.level) return false;
+    if (!entry) return false;
+    
+    // Match academic year and semester
+    if (filter?.academic_year && entry.academic_year !== filter.academic_year) return false;
+    if (filter?.semester && entry.semester !== filter.semester) return false;
+    
+    // Match other filters
+    if (filter?.day && entry.day !== filter.day) return false;
+    if (filter?.course_id && entry.course?.id?.toString() !== filter.course_id) return false;
+    if (filter?.room_id && entry.room?.id?.toString() !== filter.room_id) return false;
+    if (filter?.lecturer_id && entry.lecturer?.id?.toString() !== filter.lecturer_id) return false;
+    if (filter?.department && entry.course?.department?.id?.toString() !== filter.department) return false;
+    if (filter?.level && entry.course?.year_level?.toString() !== filter.level) return false;
+    
     return true;
   });
 
   // Get unique courses for the legend
   const uniqueCourses = new Map();
   filteredEntries.forEach((entry) => {
-    if (!uniqueCourses.has(entry.course.id)) {
-      uniqueCourses.set(entry.course.id, entry.course);
+    if (entry.course && !uniqueCourses.has(entry.course.id)) {
+      uniqueCourses.set(entry.course.id, {
+        ...entry.course,
+        color_code: entry.course.color_code || '#D1D5DB'
+      });
     }
   });
 
   // Create a map to quickly lookup entries by day and time slot
   const entryMap = new Map();
   filteredEntries.forEach((entry) => {
-    const key = `${entry.day}-${entry.timeSlot.id}`;
+    if (entry.day && entry.time_slot_id) {
+      const key = `${entry.day}-${entry.time_slot_id}`;
+      if (!entryMap.has(key)) {
     entryMap.set(key, entry);
+      } else {
+        // Handle conflicts by creating an array of entries
+        const existing = entryMap.get(key);
+        if (Array.isArray(existing)) {
+          existing.push(entry);
+        } else {
+          entryMap.set(key, [existing, entry]);
+        }
+      }
+    }
   });
 
-  // Function to get an entry for a specific day and time slot
+  // Function to get entries for a specific day and time slot
   const getEntry = (day, timeSlotId) => {
     const key = `${day}-${timeSlotId}`;
-    return entryMap.get(key) || null;
-  };
-
-  // Color mapping for courses using color_code
-  const getCourseColor = (courseId) => {
-    const course = uniqueCourses.get(courseId);
-    return course?.color_code || '#D1D5DB'; // Fallback to gray
+    const entry = entryMap.get(key);
+    return Array.isArray(entry) ? entry : (entry ? [entry] : []);
   };
 
   // Monthly view logic
@@ -212,12 +230,12 @@ const TimetableGrid = ({ filter, viewType, timetable = [], timeSlots = [] }) => 
                     {format(day, "d")}
                   </div>
                   {timeSlots.map((timeSlot) => {
-                    const entry = getEntry(dayName, timeSlot.id);
+                    const entries = getEntry(dayName, timeSlot.id);
                     const isLunchBreak = timeSlot.start_time === "12:00:00";
                     return (
                       <TimetableCell
                         key={`${dayName}-${timeSlot.id}`}
-                        entry={entry}
+                        entries={entries}
                         isLunchBreak={isLunchBreak}
                       />
                     );
@@ -227,6 +245,49 @@ const TimetableGrid = ({ filter, viewType, timetable = [], timeSlots = [] }) => 
             })}
           </div>
         ))}
+      </div>
+    );
+  };
+
+  // Weekly view
+  const renderWeeklyView = () => {
+    return (
+      <div className="min-w-full overflow-x-auto">
+        <table className="min-w-full divide-y divide-gray-200">
+          <thead>
+            <tr>
+              <th className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                Time
+              </th>
+              {days.map((day) => (
+                <th
+                  key={day}
+                  className="px-6 py-3 bg-gray-50 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                >
+                  {day}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="bg-white divide-y divide-gray-200">
+            {timeSlots.map((timeSlot) => (
+              <tr key={timeSlot.id}>
+                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  {timeSlot.start_time.slice(0, 5)} - {timeSlot.end_time.slice(0, 5)}
+                </td>
+                {days.map((day) => {
+                  const entries = getEntry(day, timeSlot.id);
+                  const isLunchBreak = timeSlot.start_time === "12:00:00";
+                  return (
+                    <td key={`${day}-${timeSlot.id}`} className="px-6 py-4">
+                      <TimetableCell entries={entries} isLunchBreak={isLunchBreak} />
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     );
   };
@@ -265,190 +326,9 @@ const TimetableGrid = ({ filter, viewType, timetable = [], timeSlots = [] }) => 
           </Button>
         </div>
       </CardHeader>
-
-      <div className="overflow-x-auto">
-        {viewType === "week" && (
-          <div className="timetable-grid min-w-full grid grid-cols-timetable">
-            <div className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-500 border-r border-b border-gray-200 sticky top-0 z-10"></div>
-            {timeSlots.map((timeSlot) => (
-              <div
-                key={timeSlot.id}
-                className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-700 border-r border-b border-gray-200 sticky top-0 z-10 [writing-mode:vertical-rl] rotate-180"
-              >
-                {timeSlot.start_time.replace(":00", "")} -{" "}
-                {timeSlot.end_time.replace(":00", "")}
-              </div>
-            ))}
-
-            {days.map((day) => (
-              <Fragment key={day}>
-                <div className="timetable-cell bg-gray-50 p-2 text-xs text-center font-medium text-gray-500 border-r border-b border-gray-200 flex items-center justify-center sticky left-0 z-10">
-                  {day.charAt(0) + day.slice(1).toLowerCase()}
-                </div>
-                {timeSlots.map((timeSlot) => {
-                  const isLunchBreak = timeSlot.start_time === "12:00:00";
-                  return (
-                    <TimetableCell
-                      key={`${day}-${timeSlot.id}`}
-                      entry={getEntry(day, timeSlot.id)}
-                      isLunchBreak={isLunchBreak}
-                    />
-                  );
-                })}
-              </Fragment>
-            ))}
-          </div>
-        )}
-
-        {viewType === "day" && filter.day && (
-          <div className="p-4">
-            <h3 className="text-lg font-medium mb-4">
-              {filter.day.charAt(0) + filter.day.slice(1).toLowerCase()}
-            </h3>
-            <div className="space-y-4">
-              {timeSlots.map((timeSlot) => (
-                <div key={timeSlot.id} className="flex">
-                  <div className="w-24 text-sm font-medium text-gray-500 flex items-center">
-                    {timeSlot.start_time.replace(":00", "")} -{" "}
-                    {timeSlot.end_time.replace(":00", "")}
-                  </div>
-                  <div className="flex-1">
-                    <TimetableCell
-                      entry={getEntry(filter.day, timeSlot.id)}
-                      isLunchBreak={timeSlot.start_time === "12:00:00"}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {viewType === "month" && renderMonthView()}
-
-        {viewType === "list" && (
-          <div className="p-4">
-            <div className="overflow-hidden">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Course
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Day
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Time
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Room
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Lecturer
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                    >
-                      Status
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredEntries.map((entry) => (
-                    <tr key={entry.id}>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div
-                            className={`h-3 w-3 bg-[${getCourseColor(
-                              entry.course.id
-                            )}] rounded-full mr-2`}
-                          ></div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {entry.course.name}
-                          </div>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {entry.course.code}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {entry.day.charAt(0) +
-                            entry.day.slice(1).toLowerCase()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {entry.timeSlot
-                            ? `${entry.timeSlot.startTime.replace(
-                                ":00",
-                                ""
-                              )} - ${entry.timeSlot.endTime.replace(":00", "")}`
-                            : "Unknown"}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {entry.room.name}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {entry.lecturer.userDetails?.fullName ||
-                            `Lecturer ${entry.lecturer.id}`}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {entry.hasConflict ? (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
-                            Conflict
-                          </span>
-                        ) : (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                            Scheduled
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {viewType !== "list" && (
-        <div className="px-4 py-4 sm:px-6 border-t border-gray-200">
-          <div className="flex flex-wrap gap-4">
-            {Array.from(uniqueCourses.values()).map((course) => (
-              <div key={course.id} className="flex items-center">
-                <div
-                  className={`h-3 w-3 bg-[${course.color_code || '#D1D5DB'}] rounded-full mr-2`}
-                ></div>
-                <span className="text-xs text-gray-600">{course.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <CardContent className="p-0">
+        {viewType === "month" ? renderMonthView() : renderWeeklyView()}
+      </CardContent>
     </Card>
   );
 };

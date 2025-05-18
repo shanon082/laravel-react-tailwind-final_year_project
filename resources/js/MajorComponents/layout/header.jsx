@@ -19,6 +19,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "../../lib/queryClient";
 import { useDebouncedCallback } from "use-debounce";
 import NotificationBell from "@/Components/NotificationBell";
+import { UserRole } from "../../types/index";
 
 const Header = () => {
   const { user, logoutMutation } = useAuth();
@@ -237,11 +238,13 @@ const Header = () => {
                     Profile
                   </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-md hover:bg-gray-100 p-2">
-                  <Link href="/settings" className="w-full text-sm">
-                    Settings
-                  </Link>
-                </DropdownMenuItem>
+                {user?.role === UserRole.ADMIN && (
+                  <DropdownMenuItem className="rounded-md hover:bg-gray-100 p-2">
+                    <Link href="/settings" className="w-full text-sm">
+                      Settings
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="rounded-md hover:bg-red-50 hover:text-red-600 p-2">
                   <Link

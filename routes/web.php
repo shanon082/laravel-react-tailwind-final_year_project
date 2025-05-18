@@ -121,16 +121,16 @@ Route::middleware('auth')->group(function () {
     Route::delete('/lecturers/availability/{id}', [LecturerController::class, 'destroyAvailability'])->name('lecturers.availability.destroy');
 
     // Timetable Routes
-    Route::get('/timetable', [TimetableController::class, 'index']);
-    Route::post('/timetable', [TimetableController::class, 'timetables.store']);
-    Route::get('/timetable/{id}', [TimetableController::class, 'timetables.show']);
-    Route::put('/timetable/{id}', [TimetableController::class, 'timetables.update']);
-    Route::delete('/timetable/{id}', [TimetableController::class, 'timetables.destroy']);
-    Route::get('/timetable/{id}/conflicts', [TimetableController::class, 'timetables.conflicts']);
-    Route::post('/timetable/generate', [TimetableController::class, 'generate']);
-    Route::get('timetable/export', [TimetableController::class, 'export'])->name('timetable.export');
-    Route::get('/timetable/{id}/timetable', [TimetableController::class, 'timetables.timetableEntries']);
-    Route::get('/timetable/{id}/availability', [TimetableController::class, 'timetables.availability']);
+    Route::get('/timetable', [TimetableController::class, 'index'])->name('timetable.index');
+    Route::post('/timetable', [TimetableController::class, 'store'])->name('timetable.store');
+    Route::get('/timetable/{id}', [TimetableController::class, 'show'])->name('timetable.show');
+    Route::put('/timetable/{id}', [TimetableController::class, 'update'])->name('timetable.update');
+    Route::delete('/timetable/{id}', [TimetableController::class, 'destroy'])->name('timetable.destroy');
+    Route::get('/timetable/{id}/conflicts', [TimetableController::class, 'conflicts'])->name('timetable.conflicts');
+    Route::post('/timetable/generate', [TimetableController::class, 'generate'])->name('timetable.generate');
+    Route::get('/timetable/export', [TimetableController::class, 'export'])->name('timetable.export');
+    Route::get('/timetable/{id}/entries', [TimetableController::class, 'timetableEntries'])->name('timetable.entries');
+    Route::get('/timetable/{id}/availability', [TimetableController::class, 'availability'])->name('timetable.availability');
 
     // Notification Routes
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
@@ -138,8 +138,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name('notifications.read-all');
 
     // Settings Routes
-    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
-    Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    Route::middleware(['auth', 'role:admin'])->group(function () {
+        Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+        Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
+    });
 
     // Student Routes
     Route::get('/api/student/info', [StudentController::class, 'info'])->name('student.info');

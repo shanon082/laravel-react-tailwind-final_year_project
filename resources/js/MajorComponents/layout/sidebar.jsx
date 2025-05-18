@@ -189,29 +189,31 @@ const Sidebar = () => {
               </ul>
             </nav>
             <div className="px-3 py-4 border-t border-gray-100">
-              <Link
-                href="/settings"
-                className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
-                  url.startsWith("/settings")
-                    ? "bg-primary text-white shadow-sm"
-                    : "text-gray-600 hover:bg-gray-100 hover:text-primary"
-                }`}
-                aria-current={url.startsWith("/settings") ? "page" : undefined}
-                onClick={() => handleLinkClick("/settings")}
-              >
-                <Settings className="h-5 w-5" />
-                <span className="ml-3">Settings</span>
-                <ChevronRight
-                  className={`ml-auto h-4 w-4 transition-transform duration-200 ${
+              {user?.role === UserRole.ADMIN && (
+                <Link
+                  href="/settings"
+                  className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
                     url.startsWith("/settings")
-                      ? "text-white rotate-90"
-                      : "text-gray-400 group-hover:text-primary"
+                      ? "bg-primary text-white shadow-sm"
+                      : "text-gray-600 hover:bg-gray-100 hover:text-primary"
                   }`}
-                />
-                <span className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-                  Manage settings
-                </span>
-              </Link>
+                  aria-current={url.startsWith("/settings") ? "page" : undefined}
+                  onClick={() => handleLinkClick("/settings")}
+                >
+                  <Settings className="h-5 w-5" />
+                  <span className="ml-3">Settings</span>
+                  <ChevronRight
+                    className={`ml-auto h-4 w-4 transition-transform duration-200 ${
+                      url.startsWith("/settings")
+                        ? "text-white rotate-90"
+                        : "text-gray-400 group-hover:text-primary"
+                    }`}
+                  />
+                  <span className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                    Manage settings
+                  </span>
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
@@ -257,29 +259,31 @@ const Sidebar = () => {
           </ul>
         </nav>
         <div className="px-3 py-4 border-t border-gray-100">
-          <Link
-            href="/settings"
-            className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
-              url.startsWith("/settings")
-                ? "bg-primary text-white shadow-sm"
-                : "text-gray-600 hover:bg-gray-100 hover:text-primary"
-            }`}
-            aria-current={url.startsWith("/settings") ? "page" : undefined}
-            onClick={() => handleLinkClick("/settings")}
-          >
-            <Settings className="h-5 w-5" />
-            <span className="ml-3">Settings</span>
-            <ChevronRight
-              className={`ml-auto h-4 w-4 transition-transform duration-200 ${
+          {user?.role === UserRole.ADMIN && (
+            <Link
+              href="/settings"
+              className={`flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 relative group ${
                 url.startsWith("/settings")
-                  ? "text-white rotate-90"
-                  : "text-gray-400 group-hover:text-primary"
+                  ? "bg-primary text-white shadow-sm"
+                  : "text-gray-600 hover:bg-gray-100 hover:text-primary"
               }`}
-            />
-            <span className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
-              Manage settings
-            </span>
-          </Link>
+              aria-current={url.startsWith("/settings") ? "page" : undefined}
+              onClick={() => handleLinkClick("/settings")}
+            >
+              <Settings className="h-5 w-5" />
+              <span className="ml-3">Settings</span>
+              <ChevronRight
+                className={`ml-auto h-4 w-4 transition-transform duration-200 ${
+                  url.startsWith("/settings")
+                    ? "text-white rotate-90"
+                    : "text-gray-400 group-hover:text-primary"
+                }`}
+              />
+              <span className="absolute left-full top-1/2 transform -translate-y-1/2 ml-2 px-2 py-1 text-xs text-white bg-gray-800 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                Manage settings
+              </span>
+            </Link>
+          )}
         </div>
       </div>
 

@@ -13,12 +13,13 @@ use Illuminate\Support\Facades\Log;
 class TimetableOptimizer
 {
     protected $population = [];
-    protected $populationSize = 100;
-    protected $generations = 100;
-    protected $mutationRate = 0.1;
-    protected $elitismCount = 5;
+    protected $populationSize = 200;
+    protected $generations = 200;
+    protected $mutationRate = 0.2;
+    protected $elitismCount = 10;
     protected $tournamentSize = 5;
     protected $crossoverRate = 0.8;
+    protected $maxCoursesPerDay = 3;
 
     public function generateUsingGeneticAlgorithm(array $data)
     {
@@ -31,7 +32,7 @@ class TimetableOptimizer
         $courses = collect($data['courses']);
         $rooms = collect($data['rooms']);
         $lecturers = collect($data['lecturers']);
-        $timeSlots = TimeSlot::all();
+        $timeSlots = collect($data['timeSlots']);
         
         $this->initializePopulation($courses, $rooms, $lecturers, $timeSlots);
         
@@ -43,12 +44,26 @@ class TimetableOptimizer
     protected function initializePopulation($courses, $rooms, $lecturers, $timeSlots)
     {
         $this->population = [];
-        for ($i = 0; $i < $this->populationSize; $i++) {
+        $attempts = 0;
+        $maxAttempts = $this->populationSize * 3;
+
+        while (count($this->population) < $this->populationSize && $attempts < $maxAttempts) {
             $schedule = $this->generateRandomSchedule($courses, $rooms, $lecturers, $timeSlots);
             if ($this->isValidSchedule($schedule)) {
                 $this->population[] = $schedule;
-            } else {
-                $i--; // Try again if schedule is invalid
+            }
+            $attempts++;
+        }
+
+        // If we couldn't generate enough valid schedules, relax constraints
+        if (count($this->population) < $this->populationSize) {
+            Log::warning('Could not generate enough valid schedules, relaxing constraints', [
+                'valid_schedules' => count($this->population),
+                'attempts' => $attempts
+            ]);
+            while (count($this->population) < $this->populationSize) {
+                $schedule = $this->generateRandomSchedule($courses, $rooms, $lecturers, $timeSlots, true);
+                $this->population[] = $schedule;
             }
         }
     }
@@ -73,26 +88,68 @@ class TimetableOptimizer
         return true;
     }
 
-    protected function generateRandomSchedule($courses, $rooms, $lecturers, $timeSlots)
+    protected function generateRandomSchedule($courses, $rooms, $lecturers, $timeSlots, $relaxConstraints = false)
     {
         $schedule = [];
+        $roomTimeSlots = [];
+        $lecturerTimeSlots = [];
+        $lecturerDailyLoad = [];
         
         foreach ($courses as $course) {
-            $validRooms = $rooms->where('capacity', '>=', $course->enrollments()->count());
-            $validLecturers = $lecturers->where('department_id', $course->department_id);
+            $attempts = 0;
+            $maxAttempts = 50;
+            $assigned = false;
             
-            if ($validRooms->isEmpty() || $validLecturers->isEmpty()) {
-                Log::warning('No valid room or lecturer for course', ['course_id' => $course->id]);
-                return []; // Return empty to trigger retry
-            }
+            while (!$assigned && $attempts < $maxAttempts) {
+                // Filter valid rooms and lecturers
+                $validRooms = $relaxConstraints ? 
+                    $rooms : 
+                    $rooms->where('capacity', '>=', $course->enrollments()->count())
+                          ->where('department_id', $course->department_id);
+                
+                $validLecturers = $relaxConstraints ? 
+                    $lecturers : 
+                    $lecturers->where('department_id', $course->department_id);
+                
+                if ($validRooms->isEmpty() || $validLecturers->isEmpty()) {
+                    $attempts++;
+                    continue;
+                }
 
-            $schedule[] = [
-                'course_id' => $course->id,
-                'room_id' => $validRooms->random()->id,
-                'lecturer_id' => $validLecturers->random()->id,
-                'day' => rand(1, 5),
-                'time_slot_id' => $timeSlots->random()->id
-            ];
+                $room = $validRooms->random();
+                $lecturer = $validLecturers->random();
+                $day = array_rand(['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY']);
+                $timeSlot = $timeSlots->random();
+                
+                $key = "{$room->id}_{$day}_{$timeSlot->id}";
+                $lecturerKey = "{$lecturer->id}_{$day}_{$timeSlot->id}";
+                $dayKey = "{$lecturer->id}_{$day}";
+                
+                if ($relaxConstraints || 
+                    (!isset($roomTimeSlots[$key]) && 
+                     !isset($lecturerTimeSlots[$lecturerKey]) && 
+                     ($lecturerDailyLoad[$dayKey] ?? 0) < $this->maxCoursesPerDay)) {
+                    
+                    $schedule[] = [
+                        'course_id' => $course->id,
+                        'room_id' => $room->id,
+                        'lecturer_id' => $lecturer->id,
+                        'day' => $day,
+                        'time_slot_id' => $timeSlot->id
+                    ];
+                    
+                    $roomTimeSlots[$key] = true;
+                    $lecturerTimeSlots[$lecturerKey] = true;
+                    $lecturerDailyLoad[$dayKey] = ($lecturerDailyLoad[$dayKey] ?? 0) + 1;
+                    $assigned = true;
+                }
+                
+                $attempts++;
+            }
+            
+            if (!$assigned && !$relaxConstraints) {
+                return $this->generateRandomSchedule($courses, $rooms, $lecturers, $timeSlots, true);
+            }
         }
         
         return $schedule;
@@ -150,11 +207,10 @@ class TimetableOptimizer
 
     protected function calculateFitness($schedule)
     {
-        $score = 0;
+        $score = 1000; // Start with a high score and subtract penalties
         $conflicts = 0;
         $preferenceScore = 0;
         
-        // Room and lecturer conflict checks
         $roomSchedule = [];
         $lecturerSchedule = [];
         $lecturerDailyLoad = [];
@@ -163,57 +219,66 @@ class TimetableOptimizer
             // Room conflicts
             $roomKey = "{$entry['room_id']}_{$entry['day']}_{$entry['time_slot_id']}";
             if (isset($roomSchedule[$roomKey])) {
-                $conflicts += 10; // Heavy penalty for room conflicts
+                $conflicts += 50; // Increased penalty
             }
             $roomSchedule[$roomKey] = true;
             
             // Lecturer conflicts
             $lecturerKey = "{$entry['lecturer_id']}_{$entry['day']}_{$entry['time_slot_id']}";
             if (isset($lecturerSchedule[$lecturerKey])) {
-                $conflicts += 10; // Heavy penalty for lecturer conflicts
+                $conflicts += 50; // Increased penalty
             }
             $lecturerSchedule[$lecturerKey] = true;
             
             // Daily teaching load
             $lecturerDayKey = "{$entry['lecturer_id']}_{$entry['day']}";
             $lecturerDailyLoad[$lecturerDayKey] = ($lecturerDailyLoad[$lecturerDayKey] ?? 0) + 1;
-            if ($lecturerDailyLoad[$lecturerDayKey] > 4) { // Max 4 classes per day
-                $conflicts += 5;
+            if ($lecturerDailyLoad[$lecturerDayKey] > $this->maxCoursesPerDay) {
+                $conflicts += 30; // Increased penalty
             }
             
-            // Check lecturer availability
-            $availability = LecturerAvailability::where([
-                'lecturer_id' => $entry['lecturer_id'],
-                'day' => $entry['day']
-            ])->first();
-            
-            if ($availability) {
-                $timeSlot = TimeSlot::find($entry['time_slot_id']);
-                if ($timeSlot) {
-                    if ($this->isTimeSlotWithinAvailability($timeSlot, $availability)) {
-                        $preferenceScore += 2;
-                    } else {
-                        $conflicts += 8;
+            try {
+                // Room capacity and department constraints
+                $course = Course::find($entry['course_id']);
+                $room = Room::find($entry['room_id']);
+                $lecturer = Lecturer::find($entry['lecturer_id']);
+                
+                if ($course && $room && $lecturer) {
+                    if ($room->capacity < $course->enrollments()->count()) {
+                        $conflicts += 20;
+                    }
+                    if ($room->department_id != $course->department_id) {
+                        $conflicts += 10;
+                    }
+                    if ($lecturer->department_id != $course->department_id) {
+                        $conflicts += 10;
                     }
                 }
-            }
-            
-            // Room capacity check
-            $room = Room::find($entry['room_id']);
-            $course = Course::find($entry['course_id']);
-            if ($room && $course) {
-                $enrollmentCount = $course->enrollments()->count();
-                if ($enrollmentCount > $room->capacity) {
-                    $conflicts += 5;
-                } elseif ($enrollmentCount < ($room->capacity * 0.4)) {
-                    $conflicts += 2; // Small penalty for underutilized rooms
+                
+                // Check lecturer availability
+                $availability = LecturerAvailability::where([
+                    'lecturer_id' => $entry['lecturer_id'],
+                    'day' => $entry['day']
+                ])->first();
+                
+                if ($availability) {
+                    $timeSlot = TimeSlot::find($entry['time_slot_id']);
+                    if ($timeSlot && $this->isTimeSlotWithinAvailability($timeSlot, $availability)) {
+                        $preferenceScore += 5;
+                    } else {
+                        $conflicts += 40;
+                    }
                 }
+            } catch (\Exception $e) {
+                Log::error('Error calculating fitness', [
+                    'error' => $e->getMessage(),
+                    'entry' => $entry
+                ]);
+                $conflicts += 100; // Heavy penalty for invalid data
             }
         }
         
-        // Calculate final score
-        $score = 1000 - ($conflicts * 10) + ($preferenceScore * 5);
-        return max(0, $score); // Ensure non-negative score
+        return max(0, $score - $conflicts + $preferenceScore);
     }
 
     protected function selection($fitnessScores)
@@ -320,3 +385,5 @@ class TimetableOptimizer
         })->all();
     }
 }
+
+

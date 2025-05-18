@@ -14,7 +14,16 @@ class Room extends Model
         'type',
         'capacity',
         'building',
+        'department_id'
     ];
+
+    /**
+     * Get the department that owns the room
+     */
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
 
     /**
      * Get the timetable entries using this room

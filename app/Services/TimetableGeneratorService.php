@@ -22,63 +22,30 @@ class TimetableGeneratorService
 
     public function generate(string $academicYear, int $semester, $courses, $rooms, $lecturers, $timeSlots): bool
     {
-        $monitoring = new TimetableMonitoring();
-        $startTime = microtime(true);
         try {
-            // First attempt: Try using OpenAI for optimal solution
-            $aiSchedule = $this->generateUsingAI($academicYear, $semester, $courses, $rooms, $lecturers, $timeSlots);
-            
-            if ($aiSchedule && $this->validateSchedule($aiSchedule)) {
-                $this->saveSchedule($aiSchedule);
-                $monitoring->recordGenerationAttempt(uniqid('timetable_'), [
-                    'method' => 'ai_optimizer',
-                    'duration' => microtime(true) - $startTime,
-                    'success' => true,
-                    'entries_generated' => count($aiSchedule),
-                    'conflicts_count' => 0,
-                    'academic_year' => $academicYear,
-                    'semester' => $semester
-                ]);
-                Log::info('Successfully generated timetable using AI');
-                return true;
+            // First try AI-based generation
+            $schedule = $this->generateUsingAI($academicYear, $semester, $courses, $rooms, $lecturers, $timeSlots);
+
+            // If AI generation fails, fall back to genetic algorithm
+            if (!$schedule) {
+                $schedule = $this->generateUsingGeneticAlgorithm($courses, $rooms, $lecturers, $timeSlots);
             }
 
-            // Second attempt: Try genetic algorithm
-            Log::info('AI generation failed or produced invalid schedule, falling back to genetic algorithm');
-            $geneticSchedule = $this->generateUsingGeneticAlgorithm($courses, $rooms, $lecturers, $timeSlots);
-            
-            if ($geneticSchedule && $this->validateSchedule($geneticSchedule)) {
-                $this->saveSchedule($geneticSchedule);
-                $monitoring->recordGenerationAttempt(uniqid('timetable_'), [
-                    'method' => 'genetic_algorithm',
-                    'duration' => microtime(true) - $startTime,
-                    'success' => true,
-                    'entries_generated' => count($geneticSchedule),
-                    'conflicts_count' => 0,
-                    'academic_year' => $academicYear,
-                    'semester' => $semester
-                ]);
-                Log::info('Successfully generated timetable using genetic algorithm');
-                return true;
+            // If both methods fail, return false
+            if (!$schedule || !$this->validateSchedule($schedule)) {
+                Log::error('Failed to generate valid timetable using both methods');
+                return false;
             }
 
-            throw new \Exception('Failed to generate a valid timetable after multiple attempts');
+            // Format and save the schedule
+            $formattedSchedule = $this->formatSchedule($schedule, $academicYear, $semester);
+            $this->saveSchedule($formattedSchedule);
 
+            return true;
         } catch (\Exception $e) {
-            $monitoring->recordGenerationAttempt(uniqid('timetable_'), [
-                'method' => $aiSchedule ? 'ai_optimizer' : 'genetic_algorithm',
-                'duration' => microtime(true) - $startTime,
-                'success' => false,
-                'entries_generated' => 0,
-                'conflicts_count' => 0,
-                'error_message' => $e->getMessage(),
-                'academic_year' => $academicYear,
-                'semester' => $semester
-            ]);
-            Log::error('Timetable generation failed', [
+            Log::error('Error in timetable generation:', [
                 'error' => $e->getMessage(),
-                'academic_year' => $academicYear,
-                'semester' => $semester
+                'trace' => $e->getTraceAsString()
             ]);
             return false;
         }
@@ -86,6 +53,10 @@ class TimetableGeneratorService
 
     protected function generateUsingAI($academicYear, $semester, $courses, $rooms, $lecturers, $timeSlots): ?array
     {
+        $maxRetries = 3;
+        $attempt = 0;
+        
+        while ($attempt < $maxRetries) {
         try {
             $prompt = $this->buildPrompt([
                 'courses' => $courses,
@@ -96,66 +67,141 @@ class TimetableGeneratorService
                 'semester' => $semester
             ]);
 
+                Log::info('Sending request to OpenAI', [
+                    'attempt' => $attempt + 1,
+                    'courses_count' => $courses->count(),
+                    'rooms_count' => $rooms->count(),
+                    'time_slots_count' => $timeSlots->count()
+                ]);
+
             $result = OpenAI::chat()->create([
-                'model' => 'gpt-3.5-turbo',
-                'messages' => [[
+                    'model' => 'gpt-3.5-turbo-16k',
+                    'messages' => [
+                        [
+                            'role' => 'system',
+                            'content' => 'You are a timetabling expert. Generate a valid university timetable that satisfies all constraints. Your response must be a valid JSON array of timetable entries. Each entry must include course_id, room_id, lecturer_id, time_slot_id, and day fields.'
+                        ],
+                        [
                     'role' => 'user',
                     'content' => $prompt,
-                ]],
-                'temperature' => 0.7,
-                'max_tokens' => 4096
+                        ]
+                    ],
+                    'temperature' => 0.2,
+                    'max_tokens' => 8000,
+                    'response_format' => ['type' => 'json_object']
             ]);
 
             $content = $result['choices'][0]['message']['content'];
+                
+                // Log the raw response for debugging
+                Log::debug('OpenAI raw response', [
+                    'content' => $content,
+                    'attempt' => $attempt + 1
+                ]);
+                
+                // Try to extract JSON if the response contains additional text
+                if (preg_match('/\{.*\}/s', $content, $matches)) {
+                    $content = $matches[0];
+                }
+                
             $schedule = json_decode($content, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
                 Log::error('JSON decode error in AI response', [
                     'error' => json_last_error_msg(),
-                    'raw_response' => $content
+                        'raw_response' => $content,
+                        'attempt' => $attempt + 1
+                    ]);
+                    throw new \Exception('Failed to parse AI response: ' . json_last_error_msg());
+                }
+
+                // Extract the timetable entries array from the response
+                $entries = $schedule['timetable'] ?? $schedule['entries'] ?? $schedule;
+                
+                if (!is_array($entries)) {
+                    Log::error('Invalid AI response format', [
+                        'response' => $schedule,
+                        'attempt' => $attempt + 1
+                    ]);
+                    throw new \Exception('AI response does not contain a valid timetable array');
+                }
+
+                if (!$this->isValidAIResponse($entries)) {
+                    Log::warning('AI generated an invalid schedule format', [
+                        'response' => $entries,
+                        'attempt' => $attempt + 1
+                    ]);
+                    throw new \Exception('AI response does not match required format');
+                }
+
+                $formattedSchedule = $this->formatSchedule($entries, $academicYear, $semester);
+                
+                // Validate the formatted schedule
+                if (!$this->validateSchedule($formattedSchedule)) {
+                    throw new \Exception('AI generated schedule failed validation');
+                }
+
+                Log::info('Successfully generated timetable using AI', [
+                    'entries_count' => count($formattedSchedule),
+                    'attempt' => $attempt + 1
                 ]);
-                return null;
-            }
 
-            if (!$this->isValidAIResponse($schedule)) {
-                Log::warning('AI generated an invalid schedule format', ['response' => $content]);
-                return null;
-            }
-
-            return $this->formatSchedule($schedule, $academicYear, $semester);
+                return $formattedSchedule;
 
         } catch (\Exception $e) {
-            Log::error('AI generation failed', [
+                Log::error('AI generation attempt failed', [
                 'error' => $e->getMessage(),
                 'code' => $e->getCode(),
-                'response' => method_exists($e, 'getResponse') ? $e->getResponse()->getBody()->getContents() : null
-            ]);
-            return null;
+                    'attempt' => $attempt + 1
+                ]);
+                
+                if ($attempt === $maxRetries - 1) {
+                    throw new \Exception('AI generation failed after ' . $maxRetries . ' attempts: ' . $e->getMessage());
+                }
+                
+                $attempt++;
+                // Add exponential backoff
+                sleep(pow(2, $attempt));
+            }
         }
+        
+        return null;
     }
 
     protected function generateUsingGeneticAlgorithm($courses, $rooms, $lecturers, $timeSlots): ?array
     {
-        $population = $this->initializePopulation($courses, $rooms, $lecturers, $timeSlots);
+        $populationSize = 100; // Increased from 50
+        $population = $this->initializePopulation($courses, $rooms, $lecturers, $timeSlots, $populationSize);
         $bestFitness = PHP_INT_MAX;
         $bestSchedule = null;
         $generationsWithoutImprovement = 0;
-        $maxGenerationsWithoutImprovement = 20;
+        $maxGenerationsWithoutImprovement = 30; // Increased from 20
+        $mutationRate = 0.2; // Increased from 0.1
 
-        for ($generation = 0; $generation < 100; $generation++) {
-            $population = $this->evolve($population, $lecturers);
+        for ($generation = 0; $generation < 200; $generation++) { // Increased from 100
+            $population = $this->evolve($population, $lecturers, $mutationRate);
             $currentBest = $this->getBest($population);
 
             if ($currentBest['fitness'] < $bestFitness) {
                 $bestFitness = $currentBest['fitness'];
                 $bestSchedule = $currentBest['chromosome'];
                 $generationsWithoutImprovement = 0;
+                
+                // Adaptive mutation rate
+                $mutationRate = max(0.1, $mutationRate * 0.95);
             } else {
                 $generationsWithoutImprovement++;
+                // Increase mutation rate when stuck
+                $mutationRate = min(0.4, $mutationRate * 1.05);
             }
 
             if ($generationsWithoutImprovement >= $maxGenerationsWithoutImprovement || $bestFitness === 0) {
                 break;
+            }
+
+            // Log progress every 10 generations
+            if ($generation % 10 === 0) {
+                Log::info("Generation $generation: Best fitness = $bestFitness, Mutation rate = $mutationRate");
             }
         }
 
@@ -169,64 +215,126 @@ class TimetableGeneratorService
         $lecturerTimeSlots = [];
         $lecturerDailyCourses = [];
 
+        try {
         foreach ($schedule as $entry) {
-            $course = Course::find($entry['course_id']);
-            $room = Room::find($entry['room_id']);
-            $lecturer = Lecturer::find($entry['lecturer_id']);
-            $timeSlot = TimeSlot::find($entry['time_slot_id']);
+                // Ensure we have all required IDs
+                if (!isset($entry['course_id']) || !isset($entry['room_id']) || 
+                    !isset($entry['lecturer_id']) || !isset($entry['time_slot_id'])) {
+                    Log::error('Missing required IDs in schedule entry', ['entry' => $entry]);
+                    return false;
+                }
 
-            if (!$course || !$room || !$lecturer || !$timeSlot) {
-                Log::warning('Invalid schedule entry: missing entity', ['entry' => $entry]);
+                // Safely extract IDs, handling both objects and scalar values
+                $courseId = $this->extractId($entry['course_id']);
+                $roomId = $this->extractId($entry['room_id']);
+                $lecturerId = $this->extractId($entry['lecturer_id']);
+                $timeSlotId = $this->extractId($entry['time_slot_id']);
+
+                if ($courseId === null || $roomId === null || $lecturerId === null || $timeSlotId === null) {
+                    Log::error('Invalid ID values in schedule entry', [
+                        'course_id' => $entry['course_id'],
+                        'room_id' => $entry['room_id'],
+                        'lecturer_id' => $entry['lecturer_id'],
+                        'time_slot_id' => $entry['time_slot_id']
+                    ]);
+                    return false;
+                }
+
+                // Fetch the models with error handling
+                try {
+                    $course = Course::findOrFail($courseId);
+                    $room = Room::findOrFail($roomId);
+                    $lecturer = Lecturer::findOrFail($lecturerId);
+                    $timeSlot = TimeSlot::findOrFail($timeSlotId);
+                } catch (\Exception $e) {
+                    Log::error('Failed to find required models', [
+                        'error' => $e->getMessage(),
+                        'course_id' => $courseId,
+                        'room_id' => $roomId,
+                        'lecturer_id' => $lecturerId,
+                        'time_slot_id' => $timeSlotId
+                    ]);
                 return false;
             }
 
             // Validate assignments
             if (!$validator->validateRoomAssignment($course, $room)) {
-                Log::warning('Invalid room assignment', ['course' => $course->id, 'room' => $room->id]);
-                return false;
-            }
-            if (!$validator->validateLecturerAssignment($course, $lecturer)) {
-                Log::warning('Invalid lecturer assignment', ['course' => $course->id, 'lecturer' => $lecturer->id]);
-                return false;
-            }
-            if (!$validator->validateTimeSlotAssignment($course, $timeSlot, $entry['day'])) {
-                Log::warning('Invalid time slot assignment', ['course' => $course->id, 'time_slot' => $timeSlot->id]);
+                    Log::warning('Invalid room assignment', [
+                        'course_id' => $course->id,
+                        'room_id' => $room->id,
+                        'course_enrollment' => $course->enrollments()->count(),
+                        'room_capacity' => $room->capacity
+                    ]);
                 return false;
             }
 
-            // Check conflicts
-            $conflicts = $validator->checkConflicts($course, $room, $lecturer, $timeSlot, $entry['day']);
-            if (!empty($conflicts)) {
-                Log::warning('Conflicts detected', ['entry' => $entry, 'conflicts' => $conflicts]);
+                // Check for room and lecturer conflicts
+                $key = "{$room->id}_{$entry['day']}_{$timeSlot->id}";
+                $lecturerKey = "{$lecturer->id}_{$entry['day']}_{$timeSlot->id}";
+
+                if (isset($roomTimeSlots[$key])) {
+                    Log::warning('Room scheduling conflict detected', [
+                        'room_id' => $room->id,
+                        'day' => $entry['day'],
+                        'time_slot' => $timeSlot->id
+                    ]);
                 return false;
             }
 
-            // Check room conflicts
-            $roomKey = "{$entry['room_id']}_{$entry['day']}_{$entry['time_slot_id']}";
-            if (isset($roomTimeSlots[$roomKey])) {
-                Log::warning('Room conflict detected', ['entry' => $entry]);
-                return false;
-            }
-            $roomTimeSlots[$roomKey] = true;
-
-            // Check lecturer conflicts
-            $lecturerKey = "{$entry['lecturer_id']}_{$entry['day']}_{$entry['time_slot_id']}";
             if (isset($lecturerTimeSlots[$lecturerKey])) {
-                Log::warning('Lecturer conflict detected', ['entry' => $entry]);
+                    Log::warning('Lecturer scheduling conflict detected', [
+                        'lecturer_id' => $lecturer->id,
+                        'day' => $entry['day'],
+                        'time_slot' => $timeSlot->id
+                    ]);
                 return false;
             }
+
+                $roomTimeSlots[$key] = true;
             $lecturerTimeSlots[$lecturerKey] = true;
 
-            // Check lecturer's daily course limit
-            $lecturerDayKey = "{$entry['lecturer_id']}_{$entry['day']}";
-            $lecturerDailyCourses[$lecturerDayKey] = ($lecturerDailyCourses[$lecturerDayKey] ?? 0) + 1;
-            if ($lecturerDailyCourses[$lecturerDayKey] > $this->maxCoursesPerDay) {
-                Log::warning('Lecturer daily course limit exceeded', ['entry' => $entry]);
+                // Track lecturer's daily course count
+                $lecturerDay = "{$lecturer->id}_{$entry['day']}";
+                $lecturerDailyCourses[$lecturerDay] = ($lecturerDailyCourses[$lecturerDay] ?? 0) + 1;
+
+                // Check if lecturer has too many courses in one day (max 4)
+                if (($lecturerDailyCourses[$lecturerDay] ?? 0) > 4) {
+                    Log::warning('Lecturer has too many courses in one day', [
+                        'lecturer_id' => $lecturer->id,
+                        'day' => $entry['day'],
+                        'course_count' => $lecturerDailyCourses[$lecturerDay]
+                    ]);
                 return false;
             }
         }
 
         return true;
+        } catch (\Exception $e) {
+            Log::error('Error in validateSchedule', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return false;
+        }
+    }
+
+    /**
+     * Helper method to safely extract ID from various input types
+     * @param mixed $input
+     * @return int|null
+     */
+    protected function extractId($input): ?int
+    {
+        if (is_object($input)) {
+            return $input->id ?? null;
+        }
+        if (is_array($input) && isset($input['id'])) {
+            return (int)$input['id'];
+        }
+        if (is_numeric($input)) {
+            return (int)$input;
+        }
+        return null;
     }
 
     protected function saveSchedule(array $schedule): void
@@ -257,18 +365,42 @@ class TimetableGeneratorService
         if (!is_array($schedule)) {
             return false;
         }
-
-        $requiredFields = ['course_id', 'room_id', 'lecturer_id', 'day', 'time_slot_id'];
         
         foreach ($schedule as $entry) {
             if (!is_array($entry)) {
                 return false;
             }
             
+            // Check for required fields
+            $requiredFields = ['course_id', 'room_id', 'lecturer_id', 'time_slot_id', 'day'];
             foreach ($requiredFields as $field) {
                 if (!isset($entry[$field])) {
+                    Log::warning('Missing required field in AI response', [
+                        'field' => $field,
+                        'entry' => $entry
+                    ]);
                     return false;
                 }
+            }
+
+            // Validate field types
+            if (!is_numeric($entry['course_id']) ||
+                !is_numeric($entry['room_id']) ||
+                !is_numeric($entry['lecturer_id']) ||
+                !is_numeric($entry['time_slot_id']) ||
+                !is_string($entry['day'])) {
+                Log::warning('Invalid field type in AI response', [
+                    'entry' => $entry
+                ]);
+                return false;
+            }
+
+            // Validate day value
+            if (!in_array($entry['day'], ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'])) {
+                Log::warning('Invalid day value in AI response', [
+                    'day' => $entry['day']
+                ]);
+                return false;
             }
         }
 
@@ -293,40 +425,43 @@ class TimetableGeneratorService
 
     protected function buildPrompt(array $data): string
     {
-        $prompt = "Generate a conflict-free university timetable in JSON format. Each entry must include course_id, room_id, lecturer_id, day, and time_slot_id.\n\n";
+        $prompt = "Generate a university timetable with the following constraints:\n\n";
+        
+        // Course information
         $prompt .= "Courses:\n";
         foreach ($data['courses'] as $course) {
-            $enrollment = $course->enrollments()->count();
-            $prompt .= "- ID: {$course->id}, Code: {$course->code}, Name: {$course->name}, Enrollment: {$enrollment}, Department: {$course->department_id}, Requires Lab: " . ($course->requires_lab ? 'Yes' : 'No') . "\n";
+            $prompt .= "- {$course->code}: {$course->name} (Credits: {$course->credit_units}, Department: {$course->department->name})\n";
         }
 
-        $prompt .= "\nAvailable Rooms:\n";
+        // Room information
+        $prompt .= "\nRooms:\n";
         foreach ($data['rooms'] as $room) {
-            $prompt .= "- ID: {$room->id}, Name: {$room->name}, Capacity: {$room->capacity}, Is Lab: " . ($room->is_lab ? 'Yes' : 'No') . ", Department: {$room->department_id}\n";
+            $prompt .= "- {$room->name} (Capacity: {$room->capacity}, Type: {$room->type})\n";
         }
 
+        // Time slots
         $prompt .= "\nTime Slots:\n";
         foreach ($data['slots'] as $slot) {
-            $prompt .= "- ID: {$slot->id}, Day: {$slot->day}, Start: {$slot->start_time}, End: {$slot->end_time}, Type: {$slot->type}\n";
+            $prompt .= "- {$slot->start_time} - {$slot->end_time}\n";
         }
 
+        // Lecturer availability
         $prompt .= "\nLecturer Availability:\n";
-        foreach ($data['availability'] as $avail) {
-            $lecturer = Lecturer::find($avail->lecturer_id);
-            $prompt .= "- Lecturer ID: {$avail->lecturer_id}, Name: {$lecturer->name}, Day: {$avail->day}, Start: {$avail->start_time}, End: {$avail->end_time}\n";
+        foreach ($data['availability'] as $availability) {
+            $prompt .= "- Lecturer ID {$availability->lecturer_id}: {$availability->day} {$availability->start_time} - {$availability->end_time}\n";
         }
 
+        // Constraints
         $prompt .= "\nConstraints:\n";
-        $prompt .= "- No room can be booked for multiple courses at the same time slot on the same day.\n";
-        $prompt .= "- No lecturer can teach multiple courses at the same time slot on the same day.\n";
-        $prompt .= "- Room capacity must be sufficient for course enrollment.\n";
-        $prompt .= "- Assign courses only to lecturers available at the chosen time slot.\n";
-        $prompt .= "- Lab courses must be assigned to lab rooms.\n";
-        $prompt .= "- Courses must be assigned to rooms and lecturers from the same department.\n";
-        $prompt .= "- Maximum 3 courses per lecturer per day.\n";
-        $prompt .= "- Academic Year: {$data['academic_year']}, Semester: {$data['semester']}.\n";
-
-        $prompt .= "\nReturn the timetable as a JSON array of objects, each with course_id, room_id, lecturer_id, day (MONDAY to FRIDAY), and time_slot_id.\n";
+        $prompt .= "1. No lecturer can teach more than one class at the same time\n";
+        $prompt .= "2. No room can be used for more than one class at the same time\n";
+        $prompt .= "3. Classes must be scheduled within lecturer availability\n";
+        $prompt .= "4. Room capacity must be sufficient for the course\n";
+        $prompt .= "5. Maximum 3 courses per day for each lecturer\n";
+        
+        $prompt .= "\nPlease generate a valid timetable in the following JSON format:\n";
+        $prompt .= '[{"course_id": number, "room_id": number, "lecturer_id": number, "day": "MONDAY"/"TUESDAY"/etc., "time_slot_id": number}, ...]\n';
+        
         return $prompt;
     }
 
@@ -354,64 +489,172 @@ class TimetableGeneratorService
         return $population;
     }
 
-    protected function evolve(array $population, $lecturers): array
+    protected function evolve(array $population, $lecturers, $mutationRate): array
     {
-        foreach ($population as &$individual) {
-            $individual['fitness'] = $this->calculateFitness($individual['chromosome'], $lecturers);
+        $newPopulation = [];
+        $populationSize = count($population);
+        $eliteSize = (int)($populationSize * 0.1); // Keep top 10% of population
+
+        // Sort population by fitness
+        usort($population, function($a, $b) {
+            return $a['fitness'] <=> $b['fitness'];
+        });
+
+        // Keep elite chromosomes
+        for ($i = 0; $i < $eliteSize; $i++) {
+            $newPopulation[] = $population[$i];
         }
 
-        usort($population, fn($a, $b) => $a['fitness'] <=> $b['fitness']);
-
-        $nextGen = array_slice($population, 0, 10); // Top 10
-        while (count($nextGen) < count($population)) {
-            $p1 = $population[array_rand($population)];
-            $p2 = $population[array_rand($population)];
-            $child = $this->crossover($p1['chromosome'], $p2['chromosome']);
-            $this->mutate($child);
-            $nextGen[] = ['chromosome' => $child, 'fitness' => 0];
+        // Tournament selection and crossover for the rest
+        while (count($newPopulation) < $populationSize) {
+            $parent1 = $this->tournamentSelect($population, 5);
+            $parent2 = $this->tournamentSelect($population, 5);
+            
+            list($child1, $child2) = $this->crossover($parent1['chromosome'], $parent2['chromosome']);
+            
+            $this->mutate($child1, $mutationRate);
+            $this->mutate($child2, $mutationRate);
+            
+            $newPopulation[] = [
+                'chromosome' => $child1,
+                'fitness' => $this->calculateFitness($child1, $lecturers)
+            ];
+            
+            if (count($newPopulation) < $populationSize) {
+                $newPopulation[] = [
+                    'chromosome' => $child2,
+                    'fitness' => $this->calculateFitness($child2, $lecturers)
+                ];
+            }
         }
 
-        return $nextGen;
+        return $newPopulation;
     }
 
-    protected function crossover(array $a, array $b): array
+    protected function tournamentSelect(array $population, int $tournamentSize): array
     {
-        $cut = rand(0, count($a) - 1);
-        return array_merge(array_slice($a, 0, $cut), array_slice($b, $cut));
+        $tournament = [];
+        $populationSize = count($population);
+        
+        for ($i = 0; $i < $tournamentSize; $i++) {
+            $tournament[] = $population[rand(0, $populationSize - 1)];
+        }
+        
+        usort($tournament, function($a, $b) {
+            return $a['fitness'] <=> $b['fitness'];
+        });
+        
+        return $tournament[0];
     }
 
-    protected function mutate(array &$chromosome, $rate = 0.1): void
+    protected function crossover(array $parent1, array $parent2): array
+    {
+        $size = count($parent1);
+        $crossoverPoint1 = rand(0, $size - 2);
+        $crossoverPoint2 = rand($crossoverPoint1 + 1, $size - 1);
+        
+        $child1 = array_merge(
+            array_slice($parent1, 0, $crossoverPoint1),
+            array_slice($parent2, $crossoverPoint1, $crossoverPoint2 - $crossoverPoint1),
+            array_slice($parent1, $crossoverPoint2)
+        );
+        
+        $child2 = array_merge(
+            array_slice($parent2, 0, $crossoverPoint1),
+            array_slice($parent1, $crossoverPoint1, $crossoverPoint2 - $crossoverPoint1),
+            array_slice($parent2, $crossoverPoint2)
+        );
+        
+        return [$child1, $child2];
+    }
+
+    protected function mutate(array &$chromosome, $rate): void
     {
         foreach ($chromosome as &$gene) {
-            if (mt_rand() / mt_getrandmax() < $rate) {
-                $gene['timeslot_id'] = TimeSlot::inRandomOrder()->first()->id;
+            if (rand(0, 100) / 100 < $rate) {
+                $type = rand(0, 2);
+                switch ($type) {
+                    case 0: // Mutate time slot
+                        $gene['time_slot_id'] = TimeSlot::inRandomOrder()->first()->id;
+                        break;
+                    case 1: // Mutate room
+                        $gene['room_id'] = Room::inRandomOrder()->first()->id;
+                        break;
+                    case 2: // Mutate day
+                        $gene['day'] = $this->days[array_rand($this->days)];
+                        break;
+                }
             }
         }
     }
 
     protected function calculateFitness(array $chromosome, $lecturers): int
     {
+        $validator = new TimetableValidator();
         $conflicts = 0;
+        $roomTimeSlots = [];
+        $lecturerTimeSlots = [];
+        $lecturerDailyCourses = [];
+        $studentGroupTimeSlots = [];
 
-        foreach ($chromosome as $entry1) {
-            $lecturer = Course::where('code', $entry1['course_code'])->first()->lecturer;
-            $slot = TimeSlot::find($entry1['timeslot_id']);
+        foreach ($chromosome as $entry) {
+            $course = Course::find($entry['course_id']);
+            $room = Room::find($entry['room_id']);
+            $lecturer = Lecturer::find($entry['lecturer_id']);
+            $timeSlot = TimeSlot::find($entry['time_slot_id']);
+            $day = $entry['day'];
 
-            $isAvailable = $lecturers->contains(function ($avail) use ($lecturer, $slot) {
-                return $avail->lecturer_id == $lecturer->id &&
-                       $avail->day == $slot->day &&
-                       $slot->start_time >= $avail->start_time &&
-                       $slot->end_time <= $avail->end_time;
-            });
+            // Room conflicts
+            $roomKey = "{$room->id}_{$day}_{$timeSlot->id}";
+            if (isset($roomTimeSlots[$roomKey])) {
+                $conflicts += 10;
+            }
+            $roomTimeSlots[$roomKey] = true;
 
-            if (!$isAvailable) $conflicts++;
+            // Lecturer conflicts
+            $lecturerKey = "{$lecturer->id}_{$day}_{$timeSlot->id}";
+            if (isset($lecturerTimeSlots[$lecturerKey])) {
+                $conflicts += 10;
+            }
+            $lecturerTimeSlots[$lecturerKey] = true;
 
-            foreach ($chromosome as $entry2) {
-                if ($entry1 !== $entry2 &&
-                    $entry1['room_id'] === $entry2['room_id'] &&
-                    $entry1['timeslot_id'] === $entry2['timeslot_id']) {
-                    $conflicts++;
-                }
+            // Daily course load for lecturer
+            $lecturerDayKey = "{$lecturer->id}_{$day}";
+            $lecturerDailyCourses[$lecturerDayKey] = ($lecturerDailyCourses[$lecturerDayKey] ?? 0) + 1;
+            if ($lecturerDailyCourses[$lecturerDayKey] > $this->maxCoursesPerDay) {
+                $conflicts += 5;
+            }
+
+            // Student group conflicts
+            $groupKey = "{$course->year_level}_{$course->department_id}_{$day}_{$timeSlot->id}";
+            if (isset($studentGroupTimeSlots[$groupKey])) {
+                $conflicts += 10;
+            }
+            $studentGroupTimeSlots[$groupKey] = true;
+
+            // Room capacity
+            if ($room->capacity < $course->enrollments()->count()) {
+                $conflicts += 3;
+            }
+
+            // Lab requirement
+            if ($course->requires_lab && !$room->is_lab) {
+                $conflicts += 5;
+            }
+
+            // Lunch break violation (12:00-13:00)
+            $slotStart = strtotime($timeSlot->start_time);
+            $slotEnd = strtotime($timeSlot->end_time);
+            $lunchStart = strtotime('12:00:00');
+            $lunchEnd = strtotime('13:00:00');
+            if ($slotStart < $lunchEnd && $slotEnd > $lunchStart) {
+                $conflicts += 8;
+            }
+
+            // Course duration vs time slot duration
+            $courseDuration = $course->credit_units * 60;
+            if ($timeSlot->getDurationAttribute() < $courseDuration) {
+                $conflicts += 4;
             }
         }
 

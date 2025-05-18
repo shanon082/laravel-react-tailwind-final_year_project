@@ -1,8 +1,7 @@
 import Layout from '@/MajorComponents/layout/layout';
-import { Head } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useState, useEffect } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { router } from '@inertiajs/react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/card';
 import { Button } from '@/Components/Button';
@@ -17,16 +16,50 @@ import {
 } from '@/Components/select';
 import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
 
+// Default settings as fallback
+const DEFAULT_SETTINGS = {
+  academic_year: new Date().getFullYear() + '/' + (new Date().getFullYear() + 1),
+  semesters: [
+    { 
+      name: 'First', 
+      start_date: new Date(new Date().getFullYear(), 7, 1).toISOString().split('T')[0], // August 1st
+      end_date: new Date(new Date().getFullYear(), 11, 15).toISOString().split('T')[0]  // December 15th
+    },
+    { 
+      name: 'Second', 
+      start_date: new Date(new Date().getFullYear() + 1, 0, 15).toISOString().split('T')[0], // January 15th
+      end_date: new Date(new Date().getFullYear() + 1, 4, 30).toISOString().split('T')[0]    // May 30th
+    },
+    { 
+      name: 'Third', 
+      start_date: new Date(new Date().getFullYear() + 1, 5, 15).toISOString().split('T')[0], // June 15th
+      end_date: new Date(new Date().getFullYear() + 1, 6, 30).toISOString().split('T')[0]    // July 30th
+    }
+  ],
+  time_slots: [
+    { start_time: '08:00:00', end_time: '10:00:00' },
+    { start_time: '11:00:00', end_time: '13:00:00' },
+    { start_time: '14:00:00', end_time: '16:00:00' }
+  ],
+  lunch_break: { start_time: '13:00:00', end_time: '14:00:00' },
+  max_courses_per_day: 3,
+  notifications: { email: true, in_app: true },
+  export_format: 'csv',
+  theme: { primary_color: '#4B5EAA', secondary_color: '#FF5733' },
+};
+
 export default function Settings({ auth, settings: initialSettings }) {
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Fetch current academic year and settings
   const { data: currentSettings, isLoading: isSettingsLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
-      const response = await fetch('/api/settings');
+      const response = await fetch('/settings');
       if (!response.ok) {
-        throw new Error('Failed to fetch settings');
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to fetch settings');
       }
       return response.json();
     },
@@ -37,7 +70,7 @@ export default function Settings({ auth, settings: initialSettings }) {
   const { data: lecturers, isLoading: isLecturersLoading } = useQuery({
     queryKey: ['lecturers'],
     queryFn: async () => {
-      const response = await fetch('/api/lecturers');
+      const response = await fetch('/lecturers');
       if (!response.ok) {
         throw new Error('Failed to fetch lecturers');
       }
@@ -49,7 +82,7 @@ export default function Settings({ auth, settings: initialSettings }) {
   const { data: students, isLoading: isStudentsLoading } = useQuery({
     queryKey: ['students'],
     queryFn: async () => {
-      const response = await fetch('/api/students');
+      const response = await fetch('/students');
       if (!response.ok) {
         throw new Error('Failed to fetch students');
       }
@@ -57,100 +90,164 @@ export default function Settings({ auth, settings: initialSettings }) {
     }
   });
 
-  const [formData, setFormData] = useState(currentSettings || {
-    academic_year: '',
-    semesters: [],
-    time_slots: [],
-    lunch_break: { start_time: '', end_time: '' },
-    max_courses_per_day: 3,
-    notifications: { email: true, in_app: true },
-    export_format: 'csv',
-    theme: { primary_color: '#4B5EAA', secondary_color: '#FF5733' },
+  // Initialize form data with default values merged with current settings
+  const [formData, setFormData] = useState(() => {
+    // Merge stored settings with defaults, ensuring all required fields exist
+    const storedSettings = initialSettings || {};
+    console.log('Initial settings from server:', storedSettings);
+
+    // Ensure semesters have proper date formats
+    const semesters = (storedSettings.semesters || DEFAULT_SETTINGS.semesters).map(sem => ({
+      ...sem,
+      start_date: sem.start_date ? new Date(sem.start_date).toISOString().split('T')[0] : '',
+      end_date: sem.end_date ? new Date(sem.end_date).toISOString().split('T')[0] : ''
+    }));
+
+    return {
+      academic_year: storedSettings.academic_year || DEFAULT_SETTINGS.academic_year,
+      semesters,
+      time_slots: storedSettings.time_slots || DEFAULT_SETTINGS.time_slots,
+      lunch_break: {
+        ...DEFAULT_SETTINGS.lunch_break,
+        ...(storedSettings.lunch_break || {})
+      },
+      max_courses_per_day: storedSettings.max_courses_per_day || DEFAULT_SETTINGS.max_courses_per_day,
+      notifications: {
+        ...DEFAULT_SETTINGS.notifications,
+        ...(storedSettings.notifications || {})
+      },
+      export_format: storedSettings.export_format || DEFAULT_SETTINGS.export_format,
+      theme: {
+        ...DEFAULT_SETTINGS.theme,
+        ...(storedSettings.theme || {})
+      }
+    };
   });
 
+  // Log the current form data whenever it changes
+  useEffect(() => {
+    console.log('Current form data:', formData);
+  }, [formData]);
+
+  // Update form data when settings are loaded
   useEffect(() => {
     if (currentSettings) {
-      setFormData(currentSettings);
+      setFormData(prev => ({
+        ...DEFAULT_SETTINGS,
+        ...currentSettings,
+        // Ensure nested objects exist
+        semesters: currentSettings.semesters || DEFAULT_SETTINGS.semesters,
+        time_slots: currentSettings.time_slots || DEFAULT_SETTINGS.time_slots,
+        lunch_break: {
+          ...DEFAULT_SETTINGS.lunch_break,
+          ...(currentSettings.lunch_break || {})
+        },
+        notifications: {
+          ...DEFAULT_SETTINGS.notifications,
+          ...(currentSettings.notifications || {})
+        },
+        theme: {
+          ...DEFAULT_SETTINGS.theme,
+          ...(currentSettings.theme || {})
+        }
+      }));
     }
   }, [currentSettings]);
 
-  const updateMutation = useMutation({
-    mutationFn: async (data) => {
-      return new Promise((resolve, reject) => {
-        router.post(
-          '/settings',
-          data,
-          {
-            preserveState: true,
-            onSuccess: (page) => {
-              console.log('Settings update success:', page.props);
-              if (page.props.flash?.success) {
-                toast({
-                  title: 'Success',
-                  description: page.props.flash.success,
-                  variant: 'default',
-                  duration: 5000,
-                });
-              }
-              resolve(page.props);
-            },
-            onError: (errors) => {
-              console.error('Settings update error:', errors);
-              toast({
-                title: 'Update Failed',
-                description: errors.message || 'An unexpected error occurred while updating settings.',
-                variant: 'destructive',
-                duration: 5000,
-              });
-              reject(new Error(errors.message || 'Failed to update settings'));
-            },
-          }
-        );
-      });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Update Failed',
-        description: error.message || 'An unexpected error occurred while updating settings.',
-        variant: 'destructive',
-        duration: 5000,
-      });
-    },
-  });
+  // Add loading state
+  if (isSettingsLoading) {
+    return (
+      <Layout user={auth.user}>
+        <Head title="Settings" />
+        <div className="py-12 bg-gray-100 min-h-screen">
+          <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+            <div className="flex items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+              <span className="ml-2 text-gray-600">Loading settings...</span>
+            </div>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   const handleChange = (key, value) => {
-    setFormData((prev) => ({ ...prev, [key]: value }));
+    setFormData(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSemesterChange = (index, field, value) => {
-    const updatedSemesters = [...formData.semesters];
-    updatedSemesters[index] = { ...updatedSemesters[index], [field]: value };
-    setFormData((prev) => ({ ...prev, semesters: updatedSemesters }));
+    setFormData(prev => {
+      const updatedSemesters = [...prev.semesters];
+      updatedSemesters[index] = { 
+        ...updatedSemesters[index], 
+        [field]: field.includes('date') ? new Date(value).toISOString().split('T')[0] : value 
+      };
+      return { ...prev, semesters: updatedSemesters };
+    });
   };
 
   const handleTimeSlotChange = (index, field, value) => {
-    const updatedTimeSlots = [...formData.time_slots];
-    updatedTimeSlots[index] = { ...updatedTimeSlots[index], [field]: value };
-    setFormData((prev) => ({ ...prev, time_slots: updatedTimeSlots }));
+    setFormData(prev => {
+      const updatedTimeSlots = [...prev.time_slots];
+      updatedTimeSlots[index] = { ...updatedTimeSlots[index], [field]: value };
+      return { ...prev, time_slots: updatedTimeSlots };
+    });
   };
 
   const addTimeSlot = () => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       time_slots: [...prev.time_slots, { start_time: '00:00:00', end_time: '00:00:00' }],
     }));
   };
 
   const removeTimeSlot = (index) => {
-    setFormData((prev) => ({
+    setFormData(prev => ({
       ...prev,
       time_slots: prev.time_slots.filter((_, i) => i !== index),
     }));
   };
 
   const handleSubmit = () => {
-    console.log('Saving settings:', formData);
-    updateMutation.mutate(formData);
+    setIsSubmitting(true);
+    console.log('Submitting settings data:', formData);
+    
+    // Validate dates before submission
+    const hasInvalidDates = formData.semesters.some(sem => {
+      const start = new Date(sem.start_date);
+      const end = new Date(sem.end_date);
+      return isNaN(start.getTime()) || isNaN(end.getTime()) || start > end;
+    });
+
+    if (hasInvalidDates) {
+      toast({
+        title: 'Error',
+        description: 'Please check that all semester dates are valid and end dates are after start dates',
+        variant: 'destructive',
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
+    router.post('/settings', formData, {
+      onSuccess: () => {
+        toast({
+          title: 'Success',
+          description: 'Settings saved successfully',
+          variant: 'default',
+        });
+        setIsSubmitting(false);
+      },
+      onError: (errors) => {
+        console.error('Error saving settings:', errors);
+        toast({
+          title: 'Error',
+          description: errors.message || 'Failed to save settings',
+          variant: 'destructive',
+        });
+        setIsSubmitting(false);
+      },
+    });
   };
 
   return (
@@ -400,10 +497,10 @@ export default function Settings({ auth, settings: initialSettings }) {
             <div className="p-6 border-t border-gray-200">
               <Button
                 onClick={handleSubmit}
-                disabled={updateMutation.isPending}
+                disabled={isSubmitting}
                 className="w-full sm:w-auto"
               >
-                {updateMutation.isPending ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Saving...

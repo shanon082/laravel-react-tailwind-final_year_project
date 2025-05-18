@@ -23,13 +23,13 @@ import { getCurrentAcademicInfo } from "../../utils/academicInfo";
 
 const TimetableGenerator = ({ academicYear, semester }) => {
   const { toast } = useToast();
-  const [year, setYear] = useState(academicYear);
-  const [term, setTerm] = useState(semester);
+  const [year, setYear] = useState("");
+  const [term, setTerm] = useState("");
   const [timetable, setTimetable] = useState([]);
   const [conflicts, setConflicts] = useState([]);
   const [filter, setFilter] = useState({
-    academic_year: academicYear,
-    semester: semester,
+    academic_year: "",
+    semester: "",
     day: null,
     course_id: null,
     room_id: null,
@@ -39,54 +39,58 @@ const TimetableGenerator = ({ academicYear, semester }) => {
   });
   const [error, setError] = useState(null);
 
-  // Fetch existing timetable
-  const { data: existingTimetable = [], isLoading: timetableLoading, refetch: refetchTimetable } = useQuery({
-    queryKey: ['timetable', filter.academic_year, filter.semester],
-    queryFn: async () => {
-      try {
-        const response = await apiRequest('GET', `/timetable?academic_year=${encodeURIComponent(filter.academic_year)}&semester=${encodeURIComponent(filter.semester)}`);
-        const data = await response.json();
-        setTimetable(data.timetable || []);
-        setConflicts(data.conflicts || []);
-        return data.timetable || [];
-      } catch (error) {
-        console.error('Error fetching timetable:', error);
-        return [];
-      }
-    },
-    enabled: !!filter.academic_year && !!filter.semester,
-  });
-
   // Fetch settings
   const { data: settings, isLoading: settingsLoading } = useQuery({
     queryKey: ['settings'],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/settings');
-      const data = await response.json();
+      const data = await apiRequest('GET', '/settings');
       return data.settings;
     },
   });
 
   const { academicYear: currentAcademicYear, semesterName } = getCurrentAcademicInfo(settings);
 
+  // Initialize form values from settings
   useEffect(() => {
     if (settings) {
-      setYear(currentAcademicYear);
-      setTerm(semesterName);
+      setYear(currentAcademicYear || "");
+      setTerm(semesterName || "");
       setFilter((prev) => ({
         ...prev,
-        academic_year: currentAcademicYear,
-        semester: semesterName,
+        academic_year: currentAcademicYear || "",
+        semester: semesterName || "",
       }));
     }
-  }, [settings]);
+  }, [settings, currentAcademicYear, semesterName]);
 
-  // Fetch time slots
-  const { data: timeSlots = [], isLoading: timeSlotsLoading } = useQuery({
-    queryKey: ["/timeslots"],
+  // Fetch existing timetable
+  const { data: existingTimetable = [], isLoading: timetableLoading, refetch: refetchTimetable } = useQuery({
+    queryKey: ['timetable', filter.academic_year, filter.semester],
     queryFn: async () => {
-      const response = await apiRequest('GET', '/timeslots');
-      return response.json();
+      try {
+        const data = await apiRequest('GET', `/timetable?academic_year=${encodeURIComponent(filter.academic_year)}&semester=${encodeURIComponent(filter.semester)}`);
+        setTimetable(data.timetable || []);
+        setConflicts(data.conflicts || []);
+        return data.timetable || [];
+      } catch (error) {
+        console.error('Error fetching timetable:', error);
+        throw error;
+      }
+    },
+    enabled: !!filter.academic_year && !!filter.semester,
+  });
+
+  // Fetch time slots from settings
+  const { data: timeSlots = [], isLoading: timeSlotsLoading } = useQuery({
+    queryKey: ['timeSlots'],
+    queryFn: async () => {
+      try {
+        const response = await apiRequest('GET', '/timeslots');
+        return response || [];
+      } catch (error) {
+        console.error('Error fetching time slots:', error);
+        return [];
+      }
     },
   });
 
@@ -95,7 +99,7 @@ const TimetableGenerator = ({ academicYear, semester }) => {
       console.log("Starting timetable generation with data:", data);
       return new Promise((resolve, reject) => {
         router.post(
-          "timetable/generate",
+          route('timetable.generate'),
           {
             academic_year: data.academic_year,
             semester: parseInt(data.semester, 10)
@@ -105,60 +109,71 @@ const TimetableGenerator = ({ academicYear, semester }) => {
             preserveScroll: true,
             onSuccess: (page) => {
               console.log("Generation response:", page);
-              // Check for flash message
-              const success = page.props?.flash?.success;
-              const error = page.props?.flash?.error;
               
-              if (error) {
-                reject(new Error(error));
+              // Extract data from the Inertia page props
+              const { timetable, conflicts, stats, flash } = page.props;
+              
+              if (flash?.error) {
+                reject(new Error(flash.error));
                 return;
               }
 
-              // Fetch the updated timetable after generation
-              router.reload({ only: ['timetable'] });
+              // Update filter to match generated timetable
+              setFilter(prev => ({
+                ...prev,
+                academic_year: data.academic_year,
+                semester: data.semester
+              }));
+              
+              // Update local state
+              setTimetable(timetable || []);
+              setConflicts(conflicts || []);
+              
+              // Trigger a refetch of the timetable data
+              refetchTimetable();
               
               resolve({
-                message: success || 'Timetable generated successfully',
-                timetable: page.props.timetable || [],
-                conflicts: page.props.conflicts || [],
-                stats: page.props.stats || {}
+                message: flash?.success || 'Timetable generated successfully',
+                timetable,
+                conflicts,
+                stats: stats || {}
               });
             },
             onError: (errors) => {
-              console.error("Generation failed with errors:", errors);
+              console.error("Generation errors:", errors);
               reject(new Error(errors.message || 'Failed to generate timetable'));
-            },
+            }
           }
         );
       });
     },
-    onSuccess: (response) => {
-      console.log("Mutation completed successfully:", response);
+    onSuccess: (data) => {
+      // Show success toast with stats
       toast({
         title: "Success",
         description: (
           <div>
-            <p>{response.message}</p>
-            <ul className="mt-2 text-sm">
-              <li>Courses scheduled: {response.stats.courses_scheduled}</li>
-              <li>Rooms used: {response.stats.rooms_used}</li>
-              <li>Lecturers assigned: {response.stats.lecturers_assigned}</li>
-            </ul>
+            <p>{data.message}</p>
+            {data.stats && (
+              <ul className="mt-2 text-sm">
+                <li>Courses scheduled: {data.stats.courses_scheduled}</li>
+                <li>Rooms used: {data.stats.rooms_used}</li>
+                <li>Lecturers assigned: {data.stats.lecturers_assigned}</li>
+              </ul>
+            )}
           </div>
         ),
+        className: "bg-green-50 border-green-200",
         duration: 5000
       });
-      
-      // Invalidate queries to refresh the data
-      queryClient.invalidateQueries({ queryKey: ['/timetable'] });
-      queryClient.invalidateQueries(['timetable']);
     },
     onError: (error) => {
-      console.error("Mutation error:", error);
+      setError(error.message);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "An unexpected error occurred while generating the timetable. Please check that you have:\n1. Courses in the system\n2. Available rooms\n3. Assigned lecturers\n4. Defined time slots"
+        description: error.message || 'Failed to generate timetable',
+        duration: 10000
       });
     },
   });
@@ -267,6 +282,31 @@ const TimetableGenerator = ({ academicYear, semester }) => {
     setYear(value);
   };
 
+  // Add error display in the UI
+  const renderError = () => {
+    if (!error) return null;
+    
+    return (
+      <Alert variant="destructive" className="mt-4">
+        <AlertCircle className="h-4 w-4" />
+        <AlertTitle>Error</AlertTitle>
+        <AlertDescription>{error}</AlertDescription>
+      </Alert>
+    );
+  };
+
+  // Add loading state display
+  const renderLoading = () => {
+    if (!generateMutation.isLoading) return null;
+    
+    return (
+      <div className="mt-4 flex items-center space-x-2">
+        <Loader2 className="h-4 w-4 animate-spin" />
+        <span>Generating timetable...</span>
+      </div>
+    );
+  };
+
   return (
     <div>
       <Card className="mb-8">
@@ -343,13 +383,8 @@ const TimetableGenerator = ({ academicYear, semester }) => {
             </ul>
           </div>
 
-          {error && (
-            <Alert variant="destructive" className="mb-4">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
+          {renderError()}
+          {renderLoading()}
         </CardContent>
         <CardFooter className="justify-between">
           <SecondaryButton variant="outline" onClick={handleCancel}>

@@ -14,10 +14,10 @@ class LecturerAvailabilitySeeder extends Seeder
         $now = Carbon::now();
 
         for ($lecturerId = 1; $lecturerId <= 20; $lecturerId++) {
-            $availableDays = collect($daysOfWeek)->shuffle()->take(rand(1, 4));
+            $availableDays = collect($daysOfWeek)->shuffle()->take(rand(3, 4));
 
             foreach ($availableDays as $day) {
-                DB::table('lecturer_availability')->insert([
+                DB::table('lecturer_availabilities')->insert([
                     'lecturer_id' => $lecturerId,
                     'day' => $day,
                     'start_time' => '08:00:00',
