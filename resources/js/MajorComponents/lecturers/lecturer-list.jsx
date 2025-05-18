@@ -18,11 +18,9 @@ const LecturerList = ({ onSelectLecturer, selectedLecturerId }) => {
     queryKey: ["/lecturers", searchQuery],
     queryFn: async () => {
       try {
-        const response = await apiRequest("GET", `/lecturers${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`);
-        if (!response.ok) {
-          throw new Error(response.error || 'Failed to fetch lecturers');
-        }
-        return response.data;
+        const data = await apiRequest("GET", `/lecturers${searchQuery ? `?search=${encodeURIComponent(searchQuery)}` : ''}`);
+        console.log("Lecturers data:", data);
+        return data;
       } catch (error) {
         console.error('Error fetching lecturers:', error);
         throw error;
@@ -30,18 +28,13 @@ const LecturerList = ({ onSelectLecturer, selectedLecturerId }) => {
     },
   });
 
-  const lecturers = Array.isArray(lecturersResponse) ? lecturersResponse : 
-                    lecturersResponse?.data ? lecturersResponse.data : [];
+  // Extract lecturers from the response
+  const lecturers = lecturersResponse?.data || [];
 
-  const filteredLecturers = lecturers.filter((lecturer) => {
-    if (!searchQuery) return true;
-    const searchLower = searchQuery.toLowerCase();
-    return (
-      (lecturer.fullName || "").toLowerCase().includes(searchLower) ||
-      (lecturer.department || "").toLowerCase().includes(searchLower) ||
-      (lecturer.title || "").toLowerCase().includes(searchLower)
-    );
-  });
+  // No need for additional filtering since the backend handles search
+  const filteredLecturers = lecturers;
+
+  console.log("Filtered lecturers:", filteredLecturers);
 
   const handleViewAvailability = (lecturer) => {
     if (onSelectLecturer) {

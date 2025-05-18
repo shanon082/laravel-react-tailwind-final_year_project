@@ -8,7 +8,10 @@ use App\Models\TimeSlot;
 use App\Models\TimetableEntry;
 use App\Models\Conflict;
 use App\Models\Notification;
+use App\Models\Lecturer;
+use App\Http\Controllers\TimetableController;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use OpenAI\Laravel\Facades\OpenAI;
 
 class TimetableGeneratorService
@@ -19,12 +22,23 @@ class TimetableGeneratorService
 
     public function generate(string $academicYear, int $semester, $courses, $rooms, $lecturers, $timeSlots): bool
     {
+        $monitoring = new TimetableMonitoring();
+        $startTime = microtime(true);
         try {
             // First attempt: Try using OpenAI for optimal solution
             $aiSchedule = $this->generateUsingAI($academicYear, $semester, $courses, $rooms, $lecturers, $timeSlots);
             
             if ($aiSchedule && $this->validateSchedule($aiSchedule)) {
                 $this->saveSchedule($aiSchedule);
+                $monitoring->recordGenerationAttempt(uniqid('timetable_'), [
+                    'method' => 'ai_optimizer',
+                    'duration' => microtime(true) - $startTime,
+                    'success' => true,
+                    'entries_generated' => count($aiSchedule),
+                    'conflicts_count' => 0,
+                    'academic_year' => $academicYear,
+                    'semester' => $semester
+                ]);
                 Log::info('Successfully generated timetable using AI');
                 return true;
             }
@@ -35,14 +49,32 @@ class TimetableGeneratorService
             
             if ($geneticSchedule && $this->validateSchedule($geneticSchedule)) {
                 $this->saveSchedule($geneticSchedule);
+                $monitoring->recordGenerationAttempt(uniqid('timetable_'), [
+                    'method' => 'genetic_algorithm',
+                    'duration' => microtime(true) - $startTime,
+                    'success' => true,
+                    'entries_generated' => count($geneticSchedule),
+                    'conflicts_count' => 0,
+                    'academic_year' => $academicYear,
+                    'semester' => $semester
+                ]);
                 Log::info('Successfully generated timetable using genetic algorithm');
                 return true;
             }
 
-            // If both methods fail, throw an exception
             throw new \Exception('Failed to generate a valid timetable after multiple attempts');
 
         } catch (\Exception $e) {
+            $monitoring->recordGenerationAttempt(uniqid('timetable_'), [
+                'method' => $aiSchedule ? 'ai_optimizer' : 'genetic_algorithm',
+                'duration' => microtime(true) - $startTime,
+                'success' => false,
+                'entries_generated' => 0,
+                'conflicts_count' => 0,
+                'error_message' => $e->getMessage(),
+                'academic_year' => $academicYear,
+                'semester' => $semester
+            ]);
             Log::error('Timetable generation failed', [
                 'error' => $e->getMessage(),
                 'academic_year' => $academicYear,
@@ -71,20 +103,33 @@ class TimetableGeneratorService
                     'content' => $prompt,
                 ]],
                 'temperature' => 0.7,
-                'max_tokens' => 2000
+                'max_tokens' => 4096
             ]);
 
-            $schedule = json_decode($result['choices'][0]['message']['content'], true);
-            
+            $content = $result['choices'][0]['message']['content'];
+            $schedule = json_decode($content, true);
+
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                Log::error('JSON decode error in AI response', [
+                    'error' => json_last_error_msg(),
+                    'raw_response' => $content
+                ]);
+                return null;
+            }
+
             if (!$this->isValidAIResponse($schedule)) {
-                Log::warning('AI generated an invalid schedule format');
+                Log::warning('AI generated an invalid schedule format', ['response' => $content]);
                 return null;
             }
 
             return $this->formatSchedule($schedule, $academicYear, $semester);
 
         } catch (\Exception $e) {
-            Log::error('AI generation failed', ['error' => $e->getMessage()]);
+            Log::error('AI generation failed', [
+                'error' => $e->getMessage(),
+                'code' => $e->getCode(),
+                'response' => method_exists($e, 'getResponse') ? $e->getResponse()->getBody()->getContents() : null
+            ]);
             return null;
         }
     }
@@ -109,7 +154,6 @@ class TimetableGeneratorService
                 $generationsWithoutImprovement++;
             }
 
-            // Early stopping if no improvement
             if ($generationsWithoutImprovement >= $maxGenerationsWithoutImprovement || $bestFitness === 0) {
                 break;
             }
@@ -120,12 +164,44 @@ class TimetableGeneratorService
 
     protected function validateSchedule(array $schedule): bool
     {
+        $validator = new TimetableValidator();
         $roomTimeSlots = [];
         $lecturerTimeSlots = [];
         $lecturerDailyCourses = [];
 
         foreach ($schedule as $entry) {
-            // Check for room conflicts
+            $course = Course::find($entry['course_id']);
+            $room = Room::find($entry['room_id']);
+            $lecturer = Lecturer::find($entry['lecturer_id']);
+            $timeSlot = TimeSlot::find($entry['time_slot_id']);
+
+            if (!$course || !$room || !$lecturer || !$timeSlot) {
+                Log::warning('Invalid schedule entry: missing entity', ['entry' => $entry]);
+                return false;
+            }
+
+            // Validate assignments
+            if (!$validator->validateRoomAssignment($course, $room)) {
+                Log::warning('Invalid room assignment', ['course' => $course->id, 'room' => $room->id]);
+                return false;
+            }
+            if (!$validator->validateLecturerAssignment($course, $lecturer)) {
+                Log::warning('Invalid lecturer assignment', ['course' => $course->id, 'lecturer' => $lecturer->id]);
+                return false;
+            }
+            if (!$validator->validateTimeSlotAssignment($course, $timeSlot, $entry['day'])) {
+                Log::warning('Invalid time slot assignment', ['course' => $course->id, 'time_slot' => $timeSlot->id]);
+                return false;
+            }
+
+            // Check conflicts
+            $conflicts = $validator->checkConflicts($course, $room, $lecturer, $timeSlot, $entry['day']);
+            if (!empty($conflicts)) {
+                Log::warning('Conflicts detected', ['entry' => $entry, 'conflicts' => $conflicts]);
+                return false;
+            }
+
+            // Check room conflicts
             $roomKey = "{$entry['room_id']}_{$entry['day']}_{$entry['time_slot_id']}";
             if (isset($roomTimeSlots[$roomKey])) {
                 Log::warning('Room conflict detected', ['entry' => $entry]);
@@ -133,7 +209,7 @@ class TimetableGeneratorService
             }
             $roomTimeSlots[$roomKey] = true;
 
-            // Check for lecturer conflicts
+            // Check lecturer conflicts
             $lecturerKey = "{$entry['lecturer_id']}_{$entry['day']}_{$entry['time_slot_id']}";
             if (isset($lecturerTimeSlots[$lecturerKey])) {
                 Log::warning('Lecturer conflict detected', ['entry' => $entry]);
@@ -155,8 +231,24 @@ class TimetableGeneratorService
 
     protected function saveSchedule(array $schedule): void
     {
-        foreach ($schedule as $entry) {
-            TimetableEntry::create($entry);
+        $controller = new TimetableController();
+        DB::beginTransaction();
+        try {
+            foreach ($schedule as $entry) {
+                $timetableEntry = new TimetableEntry($entry);
+                $timetableEntry->load(['course', 'room', 'lecturer', 'timeSlot']);
+                $conflicts = $controller->checkForConflicts($timetableEntry);
+                if (!empty($conflicts)) {
+                    Log::warning('Conflict detected before saving', ['entry' => $entry, 'conflicts' => $conflicts]);
+                    throw new \Exception('Schedule contains conflicts: ' . json_encode($conflicts));
+                }
+                TimetableEntry::create($entry);
+            }
+            DB::commit();
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to save schedule', ['error' => $e->getMessage()]);
+            throw $e;
         }
     }
 
@@ -199,81 +291,44 @@ class TimetableGeneratorService
         }, $schedule);
     }
 
-    protected function prepareData(): array
-    {
-        return [
-            'courses' => Course::with('lecturer')->get(),
-            'rooms' => Room::all(),
-            'slots' => TimeSlot::all(),
-            'availability' => LecturerAvailability::all()
-        ];
-    }
-
     protected function buildPrompt(array $data): string
     {
-        $prompt = "Generate a conflict-free university timetable. \n";
-        $prompt .= "Courses: \n";
-
+        $prompt = "Generate a conflict-free university timetable in JSON format. Each entry must include course_id, room_id, lecturer_id, day, and time_slot_id.\n\n";
+        $prompt .= "Courses:\n";
         foreach ($data['courses'] as $course) {
-            $prompt .= "- {$course->code} ({$course->name}) by {$course->lecturer->name}\n";
+            $enrollment = $course->enrollments()->count();
+            $prompt .= "- ID: {$course->id}, Code: {$course->code}, Name: {$course->name}, Enrollment: {$enrollment}, Department: {$course->department_id}, Requires Lab: " . ($course->requires_lab ? 'Yes' : 'No') . "\n";
         }
 
-        $prompt .= "Available Rooms:\n";
+        $prompt .= "\nAvailable Rooms:\n";
         foreach ($data['rooms'] as $room) {
-            $prompt .= "- {$room->name} ({$room->capacity})\n";
+            $prompt .= "- ID: {$room->id}, Name: {$room->name}, Capacity: {$room->capacity}, Is Lab: " . ($room->is_lab ? 'Yes' : 'No') . ", Department: {$room->department_id}\n";
         }
 
-        $prompt .= "Time Slots:\n";
+        $prompt .= "\nTime Slots:\n";
         foreach ($data['slots'] as $slot) {
-            $prompt .= "- {$slot->day} {$slot->start_time} - {$slot->end_time}\n";
+            $prompt .= "- ID: {$slot->id}, Day: {$slot->day}, Start: {$slot->start_time}, End: {$slot->end_time}, Type: {$slot->type}\n";
         }
 
-        $prompt .= "Lecturer Availability:\n";
+        $prompt .= "\nLecturer Availability:\n";
         foreach ($data['availability'] as $avail) {
-            $prompt .= "- {$avail->lecturer->name} is available on {$avail->day} from {$avail->start_time} to {$avail->end_time}\n";
+            $lecturer = Lecturer::find($avail->lecturer_id);
+            $prompt .= "- Lecturer ID: {$avail->lecturer_id}, Name: {$lecturer->name}, Day: {$avail->day}, Start: {$avail->start_time}, End: {$avail->end_time}\n";
         }
 
-        $prompt .= "\nReturn the timetable as JSON with course_code, room_id, timeslot_id.\n";
+        $prompt .= "\nConstraints:\n";
+        $prompt .= "- No room can be booked for multiple courses at the same time slot on the same day.\n";
+        $prompt .= "- No lecturer can teach multiple courses at the same time slot on the same day.\n";
+        $prompt .= "- Room capacity must be sufficient for course enrollment.\n";
+        $prompt .= "- Assign courses only to lecturers available at the chosen time slot.\n";
+        $prompt .= "- Lab courses must be assigned to lab rooms.\n";
+        $prompt .= "- Courses must be assigned to rooms and lecturers from the same department.\n";
+        $prompt .= "- Maximum 3 courses per lecturer per day.\n";
+        $prompt .= "- Academic Year: {$data['academic_year']}, Semester: {$data['semester']}.\n";
+
+        $prompt .= "\nReturn the timetable as a JSON array of objects, each with course_id, room_id, lecturer_id, day (MONDAY to FRIDAY), and time_slot_id.\n";
         return $prompt;
     }
-
-    protected function askOpenAI(string $prompt): array
-    {
-        $result = OpenAI::chat()->create([
-            'model' => 'gpt-3.5-turbo',
-            'messages' => [[
-                'role' => 'user',
-                'content' => $prompt,
-            ]],
-        ]);
-
-        $json = json_decode($result['choices'][0]['message']['content'], true);
-        return $json ?? [];
-    }
-
-    protected function isValidResponse(array $data): bool
-    {
-        return is_array($data) && count($data) > 0 && isset($data[0]['course_code']);
-    }
-
-    protected function storeTimetable(array $entries): void
-    {
-        TimetableEntry::truncate(); // Optional: clear old entries
-
-        foreach ($entries as $entry) {
-            TimetableEntry::create([
-                'course_code' => $entry['course_code'],
-                'room_id' => $entry['room_id'],
-                'timeslot_id' => $entry['timeslot_id'],
-            ]);
-        }
-
-        Notification::create([
-            'message' => 'New timetable generated successfully via OpenAI.',
-        ]);
-    }
-
-    // === Genetic Algorithm Helper Methods ===
 
     protected function initializePopulation($courses, $rooms, $lecturers, $timeSlots, $size = 50): array
     {
@@ -366,10 +421,5 @@ class TimetableGeneratorService
     protected function getBest(array $population): array
     {
         return $population[0]; // sorted by fitness ascending
-    }
-
-    protected function logAndFallback(string $message): void
-    {
-        Log::error("[TimetableGeneration] " . $message);
     }
 }

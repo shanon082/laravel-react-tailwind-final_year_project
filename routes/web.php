@@ -43,14 +43,14 @@ Route::middleware('auth')->group(function () {
     // Main Pages
     Route::get('/dashboard', [DashboardController::class, 'index'])->middleware('verified')->name('dashboard');
     Route::get('/courses', [CourseController::class, 'index'])->name('courses');
-    Route::get('/lecturers', [LecturerController::class, 'index'])->name('lecturers');
     Route::get('/rooms', [RoomController::class, 'index'])->name('rooms');
+    Route::get('/rooms/list', [RoomController::class, 'roomsList'])->name('rooms.list');
     Route::get('/timetable', [TimetableController::class, 'index'])->name('timetable');
-    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
     Route::get('/feedback', [FeedbackController::class, 'index'])->name('feedback');
-    //Route::get('/departments', [DepartmentController::class, 'index'])->name('departments');
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
     Route::get('/timeslots', [TimeSlotController::class, 'index']);
+    Route::get('/settings', [SettingsController::class, 'index'])->name('settings');
+    Route::get('/lecturers', [LecturerController::class, 'index'])->name('lecturers');
 
     // Faculty API Routes
     Route::get('/faculties', [FacultyController::class, 'index'])->name('faculties');
@@ -73,6 +73,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/department/{id}/courses', [TestDepart::class, 'courses'])->name('departments.courses');
     Route::get('/department/{id}/students', [TestDepart::class, 'students'])->name('departments.students');
 
+    // Departments List Route for Dropdowns
+    Route::get('/departments/list', [TestDepart::class, 'departmentsList'])->name('departments.list');
+
     // Role-Based Dashboards
     Route::middleware('role:admin')->get('/admin/dashboard', [DashboardController::class, 'index'])->name('admin.dashboard');
     Route::middleware('role:lecturer')->get('/lecturer/dashboard', [DashboardController::class, 'index'])->name('lecturer.dashboard');
@@ -85,6 +88,7 @@ Route::middleware('auth')->group(function () {
 
     // Room Routes
     Route::get('/rooms', [RoomController::class, 'index'])->name('rooms');
+    Route::get('/rooms/list', [RoomController::class, 'roomsList'])->name('rooms.list');
     Route::get('/rooms/{id}', [RoomController::class, 'show'])->name('rooms.show');
     Route::post('/rooms', [RoomController::class, 'store'])->name('rooms.store');
     Route::put('/rooms/{id}', [RoomController::class, 'update'])->name('rooms.update');
@@ -138,9 +142,16 @@ Route::middleware('auth')->group(function () {
     Route::post('/settings', [SettingsController::class, 'update'])->name('settings.update');
 
     // Student Routes
-    Route::get('/api/students/{id}/courses', [StudentController::class, 'courses'])->name('students.courses');
-    Route::get('/api/students/{id}/assignments', [StudentController::class, 'assignments'])->name('students.assignments');
-    Route::get('/api/students/{id}/timetable', [StudentController::class, 'timetable'])->name('students.timetable');
+    Route::get('/api/student/info', [StudentController::class, 'info'])->name('student.info');
+    Route::post('/api/student/update-info', [StudentController::class, 'updateInfo'])->name('student.update-info');
+    Route::get('/api/student/courses', [StudentController::class, 'courses'])->name('student.courses');
+    Route::get('/api/student/assignments', [StudentController::class, 'assignments'])->name('student.assignments');
+    Route::get('/api/student/timetable', [StudentController::class, 'timetable'])->name('student.timetable');
+});
+
+// Lecturer routes
+Route::middleware(['auth', 'role:lecturer'])->group(function () {
+    Route::get('/lecturer/courses', [LecturerController::class, 'myCourses'])->name('lecturer.courses');
 });
 
 require __DIR__ . '/auth.php';

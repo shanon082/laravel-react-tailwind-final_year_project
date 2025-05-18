@@ -65,17 +65,14 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
   } = useQuery({
     queryKey: ["/departments"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/departments");
-      if (!response.ok) {
-        throw new Error(`Failed to fetch departments: ${response.statusText}`);
+      try {
+        const data = await apiRequest("GET", "/departments");
+        console.log("Departments data fetched:", data);
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+        throw error;
       }
-      const departmentsData = await response.json();
-      console.log("Departments data fetched:", departmentsData);
-      if (!Array.isArray(departmentsData)) {
-        console.warn("Departments data is not an array:", departmentsData);
-        return [];
-      }
-      return departmentsData;
     },
   });
 
@@ -294,7 +291,7 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
                   <Select
                     onValueChange={(value) => setValue(id, value)}
                     value={form.watch(id)}
-                    disabled={id === "department" && (isDepartmentsLoading || departmentsError)}
+                    disabled={id === "department" && isDepartmentsLoading}
                   >
                     <SelectTrigger
                       className={`h-10 border-gray-300 focus:ring-blue-500 focus:border-blue-500 ${errors[id] ? "border-red-500" : ""}`}
@@ -312,7 +309,7 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
                         departmentsError ? (
                           <div className="flex items-center space-x-2 p-2">
                             <span className="text-red-600">
-                              Error: {departmentsError.message}
+                              Error loading departments. 
                             </span>
                             <Button
                               variant="ghost"
@@ -327,7 +324,7 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
                           departments.map((department) => (
                             <SelectItem
                               key={department.id}
-                              value={department.name}
+                              value={department.id.toString()}
                             >
                               {department.name}
                             </SelectItem>

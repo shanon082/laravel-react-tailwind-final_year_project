@@ -8,15 +8,18 @@ import { Download, GraduationCap, Book, Clock } from "lucide-react";
 import { Badge } from "../../Components/Badge";
 import TimetableGrid from "../../MajorComponents/timetable/timetable-grid";
 import { useToast } from "../../hooks/use-toast";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Layout from '@/MajorComponents/layout/layout';
 import SecondaryButton from '@/Components/SecondaryButton';
 import { getCurrentAcademicInfo } from "../../utils/academicInfo";
+import StudentInfoModal from "@/Components/StudentInfoModal";
+import axios from 'axios';
 
 export default function StudentDashboard({ auth }) {
-  // Move all hooks to the top of the component
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("timetable");
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [studentInfo, setStudentInfo] = useState(null);
   const [filters, setFilters] = useState({
     viewType: 'week'
   });
@@ -41,30 +44,46 @@ export default function StudentDashboard({ auth }) {
     refetchOnWindowFocus: false,
   });
 
-  // Get enrolled courses - disabled for now
+  // Fetch student info
+  const { data: student, isLoading: isStudentLoading } = useQuery({
+    queryKey: ['studentInfo'],
+    queryFn: async () => {
+      const response = await axios.get('/api/student/info');
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (!data.year_of_study || !data.department_id) {
+        setShowInfoModal(true);
+      }
+      setStudentInfo(data);
+    },
+  });
+
+  // Get enrolled courses based on student info
   const { data: enrolledCourses = [], isLoading: coursesLoading } = useQuery({
-    queryKey: ['enrolledCourses'],
+    queryKey: ['enrolledCourses', studentInfo?.department_id, studentInfo?.year_of_study],
     queryFn: async () => {
       try {
-        const response = await fetch('/api/student/courses');
-        if (!response.ok) {
-          throw new Error('Failed to fetch courses');
-        }
-        const data = await response.json();
-        return data || [];
+        const response = await axios.get('/api/student/courses', {
+          params: {
+            department_id: studentInfo?.department_id,
+            year_of_study: studentInfo?.year_of_study,
+          }
+        });
+        return response.data || [];
       } catch (error) {
         console.error('Courses fetch error:', error);
         return [];
       }
     },
-    enabled: false, // Disable for now
+    enabled: !!studentInfo?.department_id && !!studentInfo?.year_of_study,
   });
 
   // Get academic info after all hooks
   const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings || {});
 
   // Show loading state while data is being fetched
-  if (isSettingsLoading) {
+  if (isSettingsLoading || isStudentLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -133,12 +152,15 @@ export default function StudentDashboard({ auth }) {
       title: "Exporting timetable",
       description: "Your timetable is being exported to PDF format.",
     });
-    // In a real implementation, this would trigger a PDF generation
   };
 
   return (
     <>
       <Head title="Student_Dashboard" />
+      <StudentInfoModal 
+        isOpen={showInfoModal} 
+        onClose={() => setShowInfoModal(false)} 
+      />
       <div className='sm:p-6 lg:p-8'>
         <div className="md:flex md:items-center md:justify-between mb-6">
           <div className="min-w-0 flex-1">
@@ -175,7 +197,8 @@ export default function StudentDashboard({ auth }) {
               filter={{
                 academic_year: academicYear,
                 semester: semesterName,
-                // ...other filters
+                department_id: studentInfo?.department_id,
+                year_of_study: studentInfo?.year_of_study,
               }}
               viewType="week"
             />
@@ -189,11 +212,11 @@ export default function StudentDashboard({ auth }) {
                     <Book className="h-5 w-5 mr-2" />
                     Enrolled Courses
                   </CardTitle>
-                  <Badge variant="outline" className="ml-2">{sampleCourses.length} Courses</Badge>
+                  <Badge variant="outline" className="ml-2">{enrolledCourses.length} Courses</Badge>
                 </div>
               </CardHeader>
               <CardContent>
-                {sampleCourses.map((course) => (
+                {enrolledCourses.map((course) => (
                   <div key={course.id} className="mb-6 border-b pb-6 last:border-b-0 last:pb-0">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between">
                       <div>

@@ -30,10 +30,22 @@ export default function LecturerDashboard({ auth }) {
     },
   });
 
+  // Fetch lecturer's courses
+  const { data: teachingCourses = [], isLoading: isCoursesLoading } = useQuery({
+    queryKey: ['lecturerCourses'],
+    queryFn: async () => {
+      const response = await fetch('/lecturer/courses');
+      if (!response.ok) {
+        throw new Error('Failed to fetch courses');
+      }
+      return response.json();
+    },
+  });
+
   const { academicYear, semester, semesterName, currentWeek } = getCurrentAcademicInfo(settings);
 
   // Show loading state while data is being fetched
-  if (isSettingsLoading) {
+  if (isSettingsLoading || isCoursesLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
@@ -41,64 +53,37 @@ export default function LecturerDashboard({ auth }) {
     );
   }
 
-  // Mock data for lecturer's courses
-  const teachingCourses = [
-    {
-      id: 1,
-      code: "CSC201",
-      name: "Data Structures and Algorithms",
-      credits: 4,
-      students: 45,
-      schedule: "Mon, Wed 14:00 - 16:00",
-      room: "Block A, Room 201"
-    },
-    {
-      id: 2,
-      code: "CSC305",
-      name: "Database Systems",
-      credits: 3,
-      students: 38,
-      schedule: "Tue, Thu 10:00 - 12:00",
-      room: "Block B, Room 103"
-    },
-    {
-      id: 3,
-      code: "CSC401",
-      name: "Software Engineering",
-      credits: 3,
-      students: 32,
-      schedule: "Fri 9:00 - 12:00",
-      room: "Block C, Computer Lab"
-    },
-  ];
+  // Format schedule for display
+  const formatSchedule = (scheduleEntries) => {
+    if (!scheduleEntries || scheduleEntries.length === 0) return 'No schedule set';
+    
+    return scheduleEntries
+      .map(entry => `${entry.day} ${entry.start_time} - ${entry.end_time}`)
+      .join(', ');
+  };
 
-  // Mock data for upcoming classes
-  const upcomingClasses = [
-    {
-      id: 1,
-      course: "CSC201",
-      courseName: "Data Structures and Algorithms",
-      dateTime: "Mon, Oct 15, 14:00 - 16:00",
-      room: "Block A, Room 201",
-      topic: "Linked Lists Implementation"
-    },
-    {
-      id: 2,
-      course: "CSC305",
-      courseName: "Database Systems",
-      dateTime: "Tue, Oct 16, 10:00 - 12:00",
-      room: "Block B, Room 103",
-      topic: "SQL Joins and Complex Queries"
-    },
-    {
-      id: 3,
-      course: "CSC401",
-      courseName: "Software Engineering",
-      dateTime: "Fri, Oct 19, 9:00 - 12:00",
-      room: "Block C, Computer Lab",
-      topic: "Agile Development Methodologies"
-    },
-  ];
+  // Format room for display
+  const formatRoom = (scheduleEntries) => {
+    if (!scheduleEntries || scheduleEntries.length === 0) return 'No room assigned';
+    
+    return scheduleEntries
+      .map(entry => entry.room)
+      .filter((room, index, self) => room && self.indexOf(room) === index)
+      .join(', ');
+  };
+
+  // Generate upcoming classes based on current courses and schedule
+  const upcomingClasses = teachingCourses
+    .flatMap(course => 
+      course.schedule.map(scheduleEntry => ({
+        id: `${course.id}-${scheduleEntry.day}-${scheduleEntry.start_time}`,
+        course: course.code,
+        courseName: course.name,
+        dateTime: `${scheduleEntry.day} ${scheduleEntry.start_time} - ${scheduleEntry.end_time}`,
+        room: scheduleEntry.room || 'No room assigned',
+      }))
+    )
+    .slice(0, 5); // Show only next 5 upcoming classes
 
   const handleExport = () => {
     toast({
@@ -176,14 +161,19 @@ export default function LecturerDashboard({ auth }) {
                           <Users className="h-4 w-4 mr-1" />
                           {course.students} Students Enrolled
                         </div>
+                        {course.department && (
+                          <div className="text-sm text-gray-500 mt-1">
+                            Department: {course.department}
+                          </div>
+                        )}
                       </div>
                       <div className="mt-3 md:mt-0 flex flex-col items-start md:items-end">
                         <div className="flex items-center text-sm text-gray-500">
                           <Clock className="h-4 w-4 mr-1" />
-                          {course.schedule}
+                          {formatSchedule(course.schedule)}
                         </div>
                         <div className="text-sm text-gray-500 mt-1">
-                          {course.room}
+                          {formatRoom(course.schedule)}
                         </div>
                       </div>
                     </div>

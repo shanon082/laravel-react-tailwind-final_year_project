@@ -108,7 +108,34 @@ class RoomController extends Controller
         return response()->json(['message' => 'Room deleted successfully']);
     }
 
-        /**
+    /**
+     * Get a simple list of rooms for dropdowns.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function roomsList()
+    {
+        try {
+            $rooms = Room::select('id', 'name', 'type', 'building')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($room) {
+                    return [
+                        'id' => $room->id,
+                        'name' => $room->name,
+                        'type' => $room->type,
+                        'building' => $room->building
+                    ];
+                });
+
+            return response()->json($rooms);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching rooms list: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to fetch rooms'], 500);
+        }
+    }
+
+    /**
      * Get all timetable entries for this room.
      *
      * @param  int  $id

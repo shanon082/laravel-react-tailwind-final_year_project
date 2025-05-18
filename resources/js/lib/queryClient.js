@@ -1,6 +1,17 @@
 import { QueryClient } from "@tanstack/react-query";
 import axios from "axios";
 
+// Add base URL configuration
+const api = axios.create({
+    baseURL: '', // Removed /api prefix since routes are in web.php
+    headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+    },
+    withCredentials: true
+});
+
 function getCookie(name) {
   const value = `; ${document.cookie}`;
   const parts = value.split(`; ${name}=`);
@@ -12,29 +23,16 @@ function getCookie(name) {
 
 export async function apiRequest(method, url, data = null) {
     try {
-        const response = await axios({
+        const response = await api({
             method,
             url,
-            data,
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            withCredentials: true
+            data
         });
-        return {
-            ok: true,
-            data: response.data,
-            status: response.status
-        };
+        return response.data;  // Return the data directly instead of the axios response
     } catch (error) {
+        console.error('API Request Error:', error);
         if (error.response) {
-            return {
-                ok: false,
-                error: error.response.data.message || 'An error occurred',
-                status: error.response.status
-            };
+            throw new Error(error.response.data.message || 'An error occurred');
         }
         throw error;
     }

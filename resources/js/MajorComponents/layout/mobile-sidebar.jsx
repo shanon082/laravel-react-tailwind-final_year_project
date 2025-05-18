@@ -22,16 +22,10 @@ const MobileSidebar = ({ isOpen, onClose }) => {
 
   const navItems = [
     { 
-      name: "Dashboard", 
-      path: "/dashboard", 
-      icon: <LayoutDashboard className="h-5 w-5 mr-3" />, 
-      roles: [UserRole.ADMIN, UserRole.LECTURER, UserRole.STUDENT] 
-    },
-    { 
-      name: "Timetables", 
-      path: "/timetable", 
-      icon: <Calendar className="h-5 w-5 mr-3" />, 
-      roles: [UserRole.ADMIN, UserRole.LECTURER, UserRole.STUDENT] 
+      name: "Rooms", 
+      path: "/rooms", 
+      icon: <Home className="h-5 w-5 mr-3" />, 
+      roles: [UserRole.ADMIN, UserRole.LECTURER] 
     },
     { 
       name: "Courses", 
@@ -40,16 +34,10 @@ const MobileSidebar = ({ isOpen, onClose }) => {
       roles: [UserRole.ADMIN, UserRole.LECTURER, UserRole.STUDENT] 
     },
     { 
-      name: "Lecturers", 
-      path: "/lecturers", 
-      icon: <Users className="h-5 w-5 mr-3" />, 
+      name: "Timetables", 
+      path: "/timetable", 
+      icon: <Calendar className="h-5 w-5 mr-3" />, 
       roles: [UserRole.ADMIN, UserRole.LECTURER, UserRole.STUDENT] 
-    },
-    { 
-      name: "Rooms", 
-      path: "/rooms", 
-      icon: <Home className="h-5 w-5 mr-3" />, 
-      roles: [UserRole.ADMIN, UserRole.LECTURER] 
     },
   ];
 

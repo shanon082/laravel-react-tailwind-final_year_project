@@ -31,14 +31,23 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/departments");
-      if (!response.ok) {
-        console.error("Departments fetch error:", response.status, response.statusText);
-        throw new Error(`Failed to fetch departments: ${response.statusText}`);
+      try {
+        console.log('Fetching departments from:', '/departments/list');
+        const data = await apiRequest("GET", "/departments/list");
+        console.log('Departments API response:', data);
+        if (!Array.isArray(data)) {
+          console.warn('Departments data is not an array:', data);
+          return [];
+        }
+        return data;
+      } catch (error) {
+        console.error("Department fetch error:", error);
+        console.error("Error details:", {
+          message: error.message,
+          stack: error.stack
+        });
+        throw error;
       }
-      const data = await response.json();
-      console.log("Departments data:", data); // Debugging
-      return Array.isArray(data) ? data : data.data || [];
     },
   });
 
@@ -50,14 +59,14 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   } = useQuery({
     queryKey: ["lecturers"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/lecturers");
-      if (!response.ok) {
-        console.error("Lecturers fetch error:", response.status, response.statusText);
-        throw new Error(`Failed to fetch lecturers: ${response.statusText}`);
+      try {
+        const data = await apiRequest("GET", "/lecturers/list");
+        console.log('Lecturers data:', data);
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Lecturers fetch error:", error);
+        throw error;
       }
-      const data = await response.json();
-      console.log("Lecturers data:", data); // Debugging
-      return Array.isArray(data) ? data : data.data || [];
     },
   });
 
@@ -69,14 +78,14 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
   } = useQuery({
     queryKey: ["rooms"],
     queryFn: async () => {
-      const response = await apiRequest("GET", "/rooms");
-      if (!response.ok) {
-        console.error("Rooms fetch error:", response.status, response.statusText);
-        throw new Error(`Failed to fetch rooms: ${response.statusText}`);
+      try {
+        const data = await apiRequest("GET", "/rooms/list");
+        console.log('Rooms data:', data);
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Rooms fetch error:", error);
+        throw error;
       }
-      const data = await response.json();
-      console.log("Rooms data:", data); // Debugging
-      return Array.isArray(data) ? data : data.data || [];
     },
   });
 
@@ -151,7 +160,7 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
                 }
               >
                 <SelectTrigger id="department" className="mt-1">
-                  <SelectValue placeholder="All Departments" />
+                  <SelectValue placeholder={isDepartmentsLoading ? "Loading..." : "All Departments"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Departments</SelectItem>
@@ -160,6 +169,9 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
                       {dept.name}
                     </SelectItem>
                   ))}
+                  {!isDepartmentsLoading && (!departments || departments.length === 0) && (
+                    <SelectItem value="none" disabled>No departments available</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             )}
@@ -201,18 +213,18 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
                 }
               >
                 <SelectTrigger id="lecturer" className="mt-1">
-                  <SelectValue placeholder="All Lecturers" />
+                  <SelectValue placeholder={isLecturersLoading ? "Loading..." : "All Lecturers"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Lecturers</SelectItem>
                   {lecturers?.map((lecturer) => (
-                    <SelectItem
-                      key={lecturer.id}
-                      value={lecturer.id.toString()}
-                    >
-                      {lecturer.fullName || `Lecturer ${lecturer.id}`}
+                    <SelectItem key={lecturer.id} value={lecturer.id.toString()}>
+                      {lecturer.fullName || `${lecturer.first_name} ${lecturer.last_name}` || `Lecturer ${lecturer.id}`}
                     </SelectItem>
                   ))}
+                  {!isLecturersLoading && (!lecturers || lecturers.length === 0) && (
+                    <SelectItem value="none" disabled>No lecturers available</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             )}
@@ -235,15 +247,18 @@ const FilterControls = ({ onFilterChange, defaultFilters = {} }) => {
                 }
               >
                 <SelectTrigger id="room" className="mt-1">
-                  <SelectValue placeholder="All Rooms" />
+                  <SelectValue placeholder={isRoomsLoading ? "Loading..." : "All Rooms"} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Rooms</SelectItem>
                   {rooms?.map((room) => (
                     <SelectItem key={room.id} value={room.id.toString()}>
-                      {room.name}
+                      {`${room.name} (${room.building})`}
                     </SelectItem>
                   ))}
+                  {!isRoomsLoading && (!rooms || rooms.length === 0) && (
+                    <SelectItem value="none" disabled>No rooms available</SelectItem>
+                  )}
                 </SelectContent>
               </Select>
             )}

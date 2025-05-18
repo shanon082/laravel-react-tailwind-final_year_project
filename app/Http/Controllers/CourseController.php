@@ -151,12 +151,22 @@ class CourseController extends Controller
     public function lecturersList()
     {
         try {
-            $lecturers = Lecturer::select('id', 'fullName')->get()->toArray();
+            $lecturers = Lecturer::select('id', 'fullName')
+                ->orderBy('fullName')
+                ->get()
+                ->map(function ($lecturer) {
+                    return [
+                        'id' => $lecturer->id,
+                        'fullName' => $lecturer->fullName
+                    ];
+                });
+
             Log::info('Lecturers fetched for dropdown', [
                 'count' => count($lecturers),
                 'data' => $lecturers
             ]);
-            return response()->json($lecturers, 200, [], JSON_PRETTY_PRINT);
+
+            return response()->json($lecturers);
         } catch (\Exception $e) {
             Log::error('Error fetching lecturers', [
                 'error' => $e->getMessage(),
@@ -172,12 +182,22 @@ class CourseController extends Controller
     public function departmentsList()
     {
         try {
-            $departments = Department::select('id', 'name')->get()->toArray();
+            $departments = Department::select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($department) {
+                    return [
+                        'id' => $department->id,
+                        'name' => $department->name
+                    ];
+                });
+
             Log::info('Departments fetched for dropdown', [
                 'count' => count($departments),
                 'data' => $departments
             ]);
-            return response()->json($departments, 200, [], JSON_PRETTY_PRINT);
+
+            return response()->json($departments);
         } catch (\Exception $e) {
             Log::error('Error fetching departments', [
                 'error' => $e->getMessage(),

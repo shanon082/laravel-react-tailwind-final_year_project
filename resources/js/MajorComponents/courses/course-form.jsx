@@ -38,13 +38,14 @@ const CourseForm = ({ courseId, onClose }) => {
     queryKey: ["courses", courseId],
     enabled: isEditMode,
     queryFn: async () => {
-      const response = await apiRequest("GET", `/courses/${courseId}`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch course data: ${response.statusText}`);
+      try {
+        const data = await apiRequest("GET", `/courses/${courseId}`);
+        console.log("Course data fetched:", data);
+        return data;
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        throw error;
       }
-      const courseData = await response.json();
-      console.log("Course data fetched:", courseData);
-      return courseData;
     },
   });
 
@@ -56,17 +57,14 @@ const CourseForm = ({ courseId, onClose }) => {
   } = useQuery({
     queryKey: ["lecturers"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/lecturers/list`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch lecturers: ${response.statusText}`);
+      try {
+        const data = await apiRequest("GET", `/lecturers/list`);
+        console.log("Lecturers data fetched:", data);
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Error fetching lecturers:", error);
+        throw error;
       }
-      const lecturersData = await response.json();
-      console.log("Lecturers data fetched:", lecturersData);
-      if (!Array.isArray(lecturersData)) {
-        console.warn("Lecturers data is not an array:", lecturersData);
-        return [];
-      }
-      return lecturersData;
     },
   });
 
@@ -78,17 +76,14 @@ const CourseForm = ({ courseId, onClose }) => {
   } = useQuery({
     queryKey: ["departments"],
     queryFn: async () => {
-      const response = await apiRequest("GET", `/departments`);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch departments: ${response.statusText}`);
+      try {
+        const data = await apiRequest("GET", "/departments");
+        console.log("Departments data fetched:", data);
+        return Array.isArray(data) ? data : [];
+      } catch (error) {
+        console.error("Error fetching departments:", error);
+        throw error;
       }
-      const departmentsData = await response.json();
-      console.log("Departments data fetched:", departmentsData);
-      if (!Array.isArray(departmentsData)) {
-        console.warn("Departments data is not an array:", departmentsData);
-        return [];
-      }
-      return departmentsData;
     },
   });
 
@@ -446,7 +441,7 @@ const CourseForm = ({ courseId, onClose }) => {
                                   key={lecturer.id}
                                   value={lecturer.id.toString()}
                                 >
-                                  {lecturer.fullName} {/* Changed from lecturer.name to lecturer.fullName */}
+                                  {lecturer.fullName}
                                 </SelectItem>
                               ))}
                             </SelectContent>

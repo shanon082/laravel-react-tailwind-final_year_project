@@ -130,4 +130,35 @@ class TestDepart extends Controller
         $students = $department->students()->with('user')->get();
         return response()->json($students);
     }
+
+    /**
+     * Get all departments for dropdown.
+     */
+    public function departmentsList()
+    {
+        try {
+            $departments = Department::select('id', 'name')
+                ->orderBy('name')
+                ->get()
+                ->map(function ($department) {
+                    return [
+                        'id' => $department->id,
+                        'name' => $department->name
+                    ];
+                });
+
+            \Log::info('Departments fetched for dropdown', [
+                'count' => $departments->count(),
+                'data' => $departments
+            ]);
+
+            return response()->json($departments);
+        } catch (\Exception $e) {
+            \Log::error('Error fetching departments', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return response()->json(['error' => 'Failed to fetch departments'], 500);
+        }
+    }
 }

@@ -14,7 +14,7 @@ class TimetableOptimizer
 {
     protected $population = [];
     protected $populationSize = 100;
-    protected $generations = 50;
+    protected $generations = 100;
     protected $mutationRate = 0.1;
     protected $elitismCount = 5;
     protected $tournamentSize = 5;
@@ -33,10 +33,8 @@ class TimetableOptimizer
         $lecturers = collect($data['lecturers']);
         $timeSlots = TimeSlot::all();
         
-        // Initialize population
         $this->initializePopulation($courses, $rooms, $lecturers, $timeSlots);
         
-        // Evolution process
         $bestSchedule = $this->evolve($courses, $rooms, $lecturers, $timeSlots);
         
         return $this->formatSchedule($bestSchedule);
@@ -80,11 +78,19 @@ class TimetableOptimizer
         $schedule = [];
         
         foreach ($courses as $course) {
+            $validRooms = $rooms->where('capacity', '>=', $course->enrollments()->count());
+            $validLecturers = $lecturers->where('department_id', $course->department_id);
+            
+            if ($validRooms->isEmpty() || $validLecturers->isEmpty()) {
+                Log::warning('No valid room or lecturer for course', ['course_id' => $course->id]);
+                return []; // Return empty to trigger retry
+            }
+
             $schedule[] = [
                 'course_id' => $course->id,
-                'room_id' => $rooms->random()->id,
-                'lecturer_id' => $lecturers->random()->id,
-                'day' => rand(1, 5), // Monday to Friday
+                'room_id' => $validRooms->random()->id,
+                'lecturer_id' => $validLecturers->random()->id,
+                'day' => rand(1, 5),
                 'time_slot_id' => $timeSlots->random()->id
             ];
         }
@@ -99,10 +105,8 @@ class TimetableOptimizer
         $generationsWithoutImprovement = 0;
 
         for ($generation = 0; $generation < $this->generations; $generation++) {
-            // Evaluate fitness for each schedule
             $fitnessScores = $this->evaluatePopulation();
             
-            // Track best schedule
             $currentBest = max($fitnessScores);
             $currentBestIndex = array_search($currentBest, $fitnessScores);
             
@@ -114,23 +118,17 @@ class TimetableOptimizer
                 $generationsWithoutImprovement++;
             }
             
-            // Early stopping if no improvement for many generations
-            if ($generationsWithoutImprovement > 15) {
+            // Early stopping after 20 generations without improvement
+            if ($generationsWithoutImprovement > 20) {
                 Log::info("Early stopping at generation {$generation} due to no improvement");
                 break;
             }
             
-            // Selection and evolution
             $newPopulation = $this->selection($fitnessScores);
-            
-            // Elitism: Keep best solutions
             $elites = array_slice($this->population, 0, $this->elitismCount);
-            
-            // Crossover and mutation
             $offspring = $this->crossover($newPopulation);
             $this->mutate($offspring, $rooms, $lecturers, $timeSlots);
             
-            // Combine elites with new offspring
             $this->population = array_merge($elites, $offspring);
             
             Log::info("Generation {$generation}: Best fitness = {$bestFitness}");
@@ -276,13 +274,16 @@ class TimetableOptimizer
         foreach ($offspring as &$schedule) {
             foreach ($schedule as &$entry) {
                 if (mt_rand() / mt_getrandmax() < $this->mutationRate) {
+                    $course = Course::find($entry['course_id']);
                     $mutation = rand(1, 4);
                     switch ($mutation) {
                         case 1:
-                            $entry['room_id'] = $rooms->random()->id;
+                            $validRooms = $rooms->where('capacity', '>=', $course->enrollments()->count());
+                            $entry['room_id'] = $validRooms->isEmpty() ? $entry['room_id'] : $validRooms->random()->id;
                             break;
                         case 2:
-                            $entry['lecturer_id'] = $lecturers->random()->id;
+                            $validLecturers = $lecturers->where('department_id', $course->department_id);
+                            $entry['lecturer_id'] = $validLecturers->isEmpty() ? $entry['lecturer_id'] : $validLecturers->random()->id;
                             break;
                         case 3:
                             $entry['day'] = rand(1, 5);

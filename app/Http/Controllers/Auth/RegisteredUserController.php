@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Lecturer;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -43,6 +44,23 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
         ]);
+
+        // Create lecturer record if user is registering as a lecturer
+        if ($request->role === 'lecturer') {
+            \Log::info('Creating lecturer record for user', ['user_id' => $user->id]);
+            
+            $lecturer = Lecturer::create([
+                'user_id' => $user->id,
+                'username' => strtolower(str_replace(' ', '.', $request->name)),
+                'fullName' => $request->name,
+                'email' => $request->email,
+                'department' => 'Pending Assignment', // This can be updated later
+                'contact' => 'Pending',
+                'title' => 'Lecturer', // Default title
+            ]);
+
+            \Log::info('Created lecturer record', ['lecturer_id' => $lecturer->id]);
+        }
 
         event(new Registered($user));
 

@@ -15,28 +15,29 @@ class StudentController extends Controller
     /**
      * Get the student's enrolled courses for the current semester
      */
-    public function courses($id)
+    public function courses(Request $request)
     {
-        // Ensure the student exists and the user has permission to view their data
-        $student = Student::findOrFail($id);
-        if (Auth::id() !== $student->user_id && !Auth::user()->isAdmin()) {
-            return response()->json(['error' => 'Unauthorized'], 403);
+        $student = auth()->user()->student;
+        
+        if (!$student) {
+            return response()->json([]);
         }
 
-        // Get enrolled courses with related data
-        $courses = $student->courses()
-            ->with(['lecturer:id,fullName,title', 'department:id,name'])
+        $query = Course::query()
+            ->where('department_id', $student->department_id)
+            ->where('year_of_study', $student->year_of_study);
+
+        $courses = $query->with(['lecturer:id,fullName,title', 'department:id,name'])
             ->get()
             ->map(function ($course) {
                 return [
                     'id' => $course->id,
                     'code' => $course->code,
                     'name' => $course->name,
-                    'credit_units' => $course->credit_units,
-                    'is_elective' => $course->is_elective,
-                    'lecturer' => $course->lecturer,
-                    'department' => $course->department,
-                    'enrollments' => $course->enrollments->count(),
+                    'credits' => $course->credit_units,
+                    'lecturer' => $course->lecturer ? "{$course->lecturer->title} {$course->lecturer->fullName}" : 'Not Assigned',
+                    'schedule' => $this->formatSchedule($course->schedule),
+                    'room' => $this->formatRoom($course->schedule),
                 ];
             });
 
@@ -97,5 +98,79 @@ class StudentController extends Controller
         ->get();
 
         return response()->json($timetableEntries);
+    }
+
+    /**
+     * Get student information
+     */
+    public function info()
+    {
+        $student = auth()->user()->student;
+        return response()->json([
+            'year_of_study' => $student ? $student->year_of_study : null,
+            'department_id' => $student ? $student->department_id : null,
+        ]);
+    }
+
+    /**
+     * Update student information
+     */
+    public function updateInfo(Request $request)
+    {
+        $request->validate([
+            'year_of_study' => 'required|integer|min:1|max:4',
+            'department_id' => 'required|exists:departments,id',
+        ]);
+
+        $student = auth()->user()->student;
+        
+        if (!$student) {
+            $student = new Student([
+                'user_id' => auth()->id(),
+                'year_of_study' => $request->year_of_study,
+                'department_id' => $request->department_id,
+            ]);
+            $student->save();
+        } else {
+            $student->update([
+                'year_of_study' => $request->year_of_study,
+                'department_id' => $request->department_id,
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'Student information updated successfully',
+            'student' => $student,
+        ]);
+    }
+
+    /**
+     * Format schedule for display
+     */
+    private function formatSchedule($scheduleEntries)
+    {
+        if (!$scheduleEntries || $scheduleEntries->isEmpty()) {
+            return 'Schedule not set';
+        }
+        
+        return $scheduleEntries
+            ->map(fn($entry) => "{$entry->day} {$entry->start_time} - {$entry->end_time}")
+            ->join(', ');
+    }
+
+    /**
+     * Format room for display
+     */
+    private function formatRoom($scheduleEntries)
+    {
+        if (!$scheduleEntries || $scheduleEntries->isEmpty()) {
+            return 'Room not assigned';
+        }
+        
+        return $scheduleEntries
+            ->pluck('room.name')
+            ->unique()
+            ->filter()
+            ->join(', ') ?: 'Room not assigned';
     }
 } 
