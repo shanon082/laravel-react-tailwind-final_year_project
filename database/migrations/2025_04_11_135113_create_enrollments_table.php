@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('student_id')->constrained()->onDelete('cascade');
             $table->foreignId('course_id')->constrained()->onDelete('cascade');
             $table->string('academic_year');
-            $table->string('semester');
+            $table->integer('semester');
             $table->timestamps();
             
             // Ensure a student cannot enroll in the same course multiple times in the same semester

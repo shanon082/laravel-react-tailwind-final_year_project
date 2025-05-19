@@ -26,6 +26,7 @@ class TimetableGenerationMetric extends Model
         'duration_seconds' => 'float',
         'entries_generated' => 'integer',
         'conflicts_count' => 'integer',
+        'semester' => 'integer',
     ];
 
     /**

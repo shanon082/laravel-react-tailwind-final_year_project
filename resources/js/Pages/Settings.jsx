@@ -100,7 +100,8 @@ export default function Settings({ auth, settings: initialSettings }) {
     const semesters = (storedSettings.semesters || DEFAULT_SETTINGS.semesters).map(sem => ({
       ...sem,
       start_date: sem.start_date ? new Date(sem.start_date).toISOString().split('T')[0] : '',
-      end_date: sem.end_date ? new Date(sem.end_date).toISOString().split('T')[0] : ''
+      end_date: sem.end_date ? new Date(sem.end_date).toISOString().split('T')[0] : '',
+      semester: sem.semester ? parseInt(sem.semester, 10) : undefined
     }));
 
     return {

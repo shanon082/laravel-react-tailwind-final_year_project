@@ -42,17 +42,20 @@ class SettingsSeeder extends Seeder
                     [
                         'name' => 'First',
                         'start_date' => '2024-08-01',
-                        'end_date' => '2024-12-15'
+                        'end_date' => '2024-12-15',
+                        'semester' => 1
                     ],
                     [
                         'name' => 'Second',
                         'start_date' => '2025-01-15',
-                        'end_date' => '2025-05-30'
+                        'end_date' => '2025-05-30',
+                        'semester' => 2
                     ],
                     [
                         'name' => 'Third',
                         'start_date' => '2025-06-15',
-                        'end_date' => '2025-07-30'
+                        'end_date' => '2025-07-30',
+                        'semester' => 3
                     ]
                 ])
             ],

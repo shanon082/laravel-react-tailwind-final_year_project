@@ -21,7 +21,7 @@ return new class extends Migration
             $table->boolean('has_conflict')->default(false);
             $table->string('conflict_type')->nullable(); // ROOM, LECTURER, TIME
             $table->string('academic_year');
-            $table->string('semester');
+            $table->integer('semester');
             $table->timestamps();
         });
     }

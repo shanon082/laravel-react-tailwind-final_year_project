@@ -150,13 +150,16 @@ const AddLecturerDialog = ({ open, onOpenChange, lecturerId }) => {
           }
         );
       } else {
+        // Get the department name from the selected department ID
+        const selectedDepartment = departments?.find(dept => dept.id.toString() === data.department);
+        
         await router.post(
           route("lecturers.store"),
           {
             username: data.username,
             fullName: data.fullName,
             email: data.email,
-            department: data.department,
+            department: selectedDepartment?.name || data.department,
             title: data.title,
             contact: data.contact,
           },

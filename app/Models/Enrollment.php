@@ -16,6 +16,10 @@ class Enrollment extends Model
         'semester',
     ];
 
+    protected $casts = [
+        'semester' => 'integer',
+    ];
+
     /**
      * Get the student that owns the enrollment.
      */

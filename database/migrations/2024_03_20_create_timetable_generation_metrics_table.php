@@ -21,7 +21,7 @@ return new class extends Migration
             $table->integer('conflicts_count')->default(0);
             $table->text('error_message')->nullable();
             $table->string('academic_year')->nullable();
-            $table->string('semester')->nullable();
+            $table->integer('semester')->nullable();
             $table->timestamps();
 
             $table->index(['method', 'success']);

@@ -113,7 +113,7 @@ const CourseForm = ({ courseId, onClose }) => {
         is_elective: course.is_elective || false,
         color_code: course.color_code || "#3B82F6",
         year_level: course.year_level || 1,
-        semester: course.semester || 1,
+        semester: course.semester ? parseInt(course.semester, 10) : 1,
       });
     }
   }, [course, form, isEditMode]);

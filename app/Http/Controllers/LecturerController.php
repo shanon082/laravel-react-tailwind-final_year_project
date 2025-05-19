@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Models\TimeSlot;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class LecturerController extends Controller
 {
@@ -78,19 +79,32 @@ class LecturerController extends Controller
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $validated = $request->validate([
-            'username' => 'required|string|unique:lecturers,username',
-            'fullName' => 'required|string|max:255',
-            'email' => 'required|string|email|unique:lecturers,email',
-            'department' => 'required|string',
-            'contact' => 'required|string',
-            'title' => 'required|string',
-        ]);
-
         try {
+            \Log::info('Attempting to create lecturer', ['request_data' => $request->all()]);
+
+            $validated = $request->validate([
+                'username' => 'required|string|unique:lecturers,username',
+                'fullName' => 'required|string|max:255',
+                'email' => 'required|string|email|unique:lecturers,email',
+                'department' => 'required|string',
+                'contact' => 'required|string',
+                'title' => 'required|string',
+            ]);
+
             DB::beginTransaction();
 
+            // Create a new user for the lecturer
+            $user = \App\Models\User::create([
+                'name' => $validated['fullName'],
+                'email' => $validated['email'],
+                'password' => bcrypt(Str::random(10)), // Generate a random password
+                'role' => 'lecturer',
+            ]);
+
+            \Log::info('Created user for lecturer', ['user_id' => $user->id]);
+
             $lecturer = Lecturer::create([
+                'user_id' => $user->id,
                 'username' => $validated['username'],
                 'fullName' => $validated['fullName'],
                 'email' => $validated['email'],
@@ -99,6 +113,8 @@ class LecturerController extends Controller
                 'title' => $validated['title'],
             ]);
 
+            \Log::info('Created lecturer', ['lecturer_id' => $lecturer->id]);
+
             DB::commit();
 
             if ($request->header('X-Inertia')) {
@@ -106,8 +122,20 @@ class LecturerController extends Controller
             }
 
             return response()->json($lecturer, 201);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            \Log::error('Validation error creating lecturer', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+            throw $e;
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Error creating lecturer', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'request_data' => $request->all()
+            ]);
+            
             if ($request->header('X-Inertia')) {
                 return redirect()->back()->withErrors(['error' => 'Error creating lecturer: ' . $e->getMessage()]);
             }

@@ -54,6 +54,12 @@ class TimetableValidator
             return false;
         }
 
+        // Check lecturer is main lecturer or in same department
+        if ($lecturer->id !== $course->lecturer && $lecturer->department_id !== $course->department_id) {
+            \Log::warning("Lecturer {$lecturer->user->name} is not assigned to course {$course->code} and not in the same department");
+            return false;
+        }
+
         // Check lecturer availability for this time slot
         $availability = $lecturer->availability()
             ->where('day', $day)

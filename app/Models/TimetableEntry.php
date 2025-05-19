@@ -23,6 +23,7 @@ class TimetableEntry extends Model
 
     protected $casts = [
         'has_conflict' => 'boolean',
+        'semester' => 'integer',
     ];
 
     /**

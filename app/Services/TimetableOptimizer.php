@@ -107,9 +107,10 @@ class TimetableOptimizer
                     $rooms->where('capacity', '>=', $course->enrollments()->count())
                           ->where('department_id', $course->department_id);
                 
-                $validLecturers = $relaxConstraints ? 
-                    $lecturers : 
-                    $lecturers->where('department_id', $course->department_id);
+                $validLecturers = $lecturers->filter(function($lecturer) use ($course) {
+                    // Main lecturer or same department
+                    return $lecturer->id === $course->lecturer || $lecturer->department_id === $course->department_id;
+                });
                 
                 if ($validRooms->isEmpty() || $validLecturers->isEmpty()) {
                     $attempts++;
